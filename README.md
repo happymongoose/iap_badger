@@ -267,7 +267,7 @@ iap.restore(false, restoreListener, restoreTimeout)
 ```
 
 
-*iap.restore* requires three parameters.  The first is a boolean to indicate whether non-consumable items should be completely removed from the inventory before the restore is made (normally not necessary - but this can be useful for debugging).  The second is the restore listener function when a successful restore has been made.  The third is a timeout listener.
+*iap.restore* requires three parameters.  The first is a boolean to indicate whether non-consumable items should be completely removed from the inventory before the restore is made (normally not necessary - but this can be useful for debugging).  The second is the restore listener function to be called when a successful restore has been made.  The third is a timeout listener.
 
 The restore listener should check the contents of event.firstRestoreCallback - this will be set to true if this is the first item to be restored.  If it is the case, the listener function should remove any progress spinners and tell the user their products are being restored.  For apps with many products, the listener function may be called a number of times, so this kind of 'noisy' action should only be carried out once.  The app store never tells IAP Badger how many products are due to be restored, and whether this is the last product to be restored, so this approach lets the user know that a restore is going to be successful.
 
