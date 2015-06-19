@@ -21,12 +21,11 @@ Although Corona SDK offers an IAP API that is quite similar across the app store
 ### Inventory / security features:
 
 * customise the filename used to save the contents of the inventory
-* inventory file contents can be hashed to prevent unauthorised changes (specify a 'salt' in the init() function).
-* a customisable 'salt' can be applied to the contents so no two Corona apps produce the same hash for the same inventory contents.  (Empty inventories are saved without a hash, to make it more difficult to reverse engineer the salt.)
+* inventory file contents can be hashed to prevent unauthorised changes (specify a 'salt' in the init() function  Empty inventories are saved without a hash, to make it more difficult to reverse engineer the salt.)
 * product names can be refactored (renamed) in the save file to disguise their true function
 * quantities / values can also be disguised / obfuscated
 * fake items can be added to the inventory, whose values change randomly with each save, to help disguise the function of other quantities being saved at the same time.
-* IAP badger can generate a Amazon test JSON file for you, to help with testing on Amazon hardware
+* IAP badger can generate an Amazon test JSON file automatically, to help with testing on Amazon hardware
 
 
 ### How to use:
