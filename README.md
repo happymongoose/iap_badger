@@ -10,7 +10,7 @@ Although Corona SDK offers an IAP API that is quite similar across the app store
 ### General features:
 
 * a unified approach to calling IAP functions, whether you're on the App Store, Google Play, or wherever
-* simplified calling and testing of IAP functions - just provide IAP Badger with a list of products and some simple callbacks for when items are purchased / restored or refunded
+* simplified calling and testing of IAP functions - just provide IAP Badger with a list of products and some simple listeners for when items are purchased / restored or refunded
 * a testing mode, so your IAP functions can be tested on the simulator or a real device without having to contact an actual app store.
 * simplified product maintenance (adding/removing products from the inventory)
 * handling of loading / saving of items that have been purchased
@@ -188,7 +188,7 @@ The following code will handle the purchase of our remove banner item:
 
 ```lua
 
---The callback function
+--The purchase listener function
 --IAP will call purchaseListener with the name of the product
 local function purchaseListener(product)
 
@@ -211,16 +211,16 @@ iap.purchase("removeAds", purchaseListener)
 
 The *iap.purchase* function calls IAP Badger with the name of the product to buy - remember, this will be its identifier in the product catalogue, **not** the identifier used on iTunes Connect or Google Play.  It also supplies the name of the function to call if the purchase is successful.
 
-**Why two callback functions?** You may have noticed there are two callback functions: one within the catalogue, and one named explicitly from the *iap.purchase* function.
+**Why two purchase listener functions?** You may have noticed there are two listener functions: one within the catalogue, and one named explicitly from the *iap.purchase* function.
 
 * The function identified within the product catalogue should work silently, handling inventory changes - this is partially because it can be called during a product restore cycle, as well as during a purchase.
 * The function identified in the *iap.purchase* function can be as noisy as you like, sending all sorts of messages to the user, playing congratulatory sounds and making screen changes.  
 
-Remember: product catalogue callbacks make silent inventory changes - that's all.
+Remember: product catalogue listeners make silent inventory changes - and that's all they should do.
 
 #####Product restores
 
-The product restore cycle works in a very similar way.  There is only one slight difference - in your callback function, IAP Badger will let you know whether this is the first item that has been restored.
+The product restore cycle works in a very similar way.  There is only one slight difference - in your listener function, IAP Badger will let you know whether this is the first item that has been restored.
 
 ```lua
 
@@ -262,11 +262,11 @@ iap.restore(false, restoreListener, restoreTimeout)
 ```
 
 
-*iap.restore* requires three parameters.  The first is a boolean to indicate whether non-consumable items should be completely removed from the inventory before the restore is made (normally not necessary - but this can be useful for debugging).  The second is the restore callback when a successful restore has been made.  The third is a timeout callback.
+*iap.restore* requires three parameters.  The first is a boolean to indicate whether non-consumable items should be completely removed from the inventory before the restore is made (normally not necessary - but this can be useful for debugging).  The second is the restore listener function when a successful restore has been made.  The third is a timeout listener.
 
-The restore callback should check the contents of event.firstRestoreCallback - this will be set to true if this is the first item to be restored.  If it is the case, the callback function should remove any progress spinners and tell the user their products are being restored.  For apps with many products, the callback function may be called a number of times, so this kind of 'noisy' action should only be carried out once.  The app store never tells IAP Badger how many products are due to be restored, and whether this is the last product to be restored, so this approach lets the user know that a restore is going to be successful.
+The restore listener should check the contents of event.firstRestoreCallback - this will be set to true if this is the first item to be restored.  If it is the case, the listener function should remove any progress spinners and tell the user their products are being restored.  For apps with many products, the listener function may be called a number of times, so this kind of 'noisy' action should only be carried out once.  The app store never tells IAP Badger how many products are due to be restored, and whether this is the last product to be restored, so this approach lets the user know that a restore is going to be successful.
 
-The timeout callback is necessary because there is no guarantee that the app store will ever reply to a restore request (in fact, if the user has never bought a product for this app, it never will).  The timeout function is called after a given duration to tell your app that nothing is forthcoming, and you should tell the user that the restore failed.
+The timeout listener is necessary because there is no guarantee that the app store will ever reply to a restore request (in fact, if the user has never bought a product for this app, it never will).  The timeout function is called after a given duration to tell your app that nothing is forthcoming, and you should tell the user that the restore failed.
 
 So in summary:
 
@@ -289,7 +289,7 @@ iap.saveInventory()
 
 **And that's it.**
 
-By providing IAP Badger with the catalogue, a purchase callback and two restore callbacks, the library will handle all API calls to Apple, Amazon and Google Play.  It will handle loading and saving inventories, initialising the app stores and varying product identifiers automatically.
+By providing IAP Badger with the catalogue, a purchase listener and two restore listener, the library will handle all API calls to Apple, Amazon and Google Play.  It will handle loading and saving inventories, initialising the app stores and varying product identifiers automatically.
 
 ###Testing and debugging on the simulator
 
@@ -317,7 +317,7 @@ local iapOptions = {
 iap.init(iapOptions)
 ```
 
-You can now debug your in app purchases on the simulator.  When the iap.purchase or iap.restore functions are called, you will receive an alert box asking you how you would the app store to respond (eg. successful purchase, cancelled by user, failed transaction).  Your callback functions will receive exactly the same information they will receive in the live environment, so you can test and step through code to make sure it works correctly.
+You can now debug your in app purchases on the simulator.  When the iap.purchase or iap.restore functions are called, you will receive an alert box asking you how you would the app store to respond (eg. successful purchase, cancelled by user, failed transaction).  Your listener functions will receive exactly the same information they will receive in the live environment, so you can test and step through code to make sure it works correctly.
 
 The debug mode can also be set to work on a real device.  If IAP Badger detects it is being run on a device, you will receive a warning when the library is initialised.  This is to make sure you don't accidentally send this version of the code to the app store.
 
