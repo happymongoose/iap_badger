@@ -124,9 +124,9 @@ The first item in *removeAds* is the *productNames* table.  This contains a list
 
 *(Note that setting up products on Google Play, Amazon, iTunes Connect et al is beyond the scope of this tutorial).*
 
-The *product_type* value can be one of two values: **consumable** or **non-consummable**.  **consumable** items are like gold coins in a game that can be purchased and then spent, or used up.  The user can purchase and re-purchase consumable items to their heart's content.  **non-consummable** items can only be purchased once, and can be restored by the user if they ever delete and re-install the app, or purchase a new device.  The *removeAds* product is non-consummable,.
+The *product_type* value can be one of two values: **consumable** or **non-consummable**.  **consumable** items are like gold coins in a game that can be purchased and then spent, or used up.  The user can purchase and re-purchase consumable items to their heart's content.  **non-consummable** items can only be purchased once, and can be restored by the user if they ever delete and re-install the app, or purchase a new device.  The *removeAds* product is non-consummable.
 
-There now follow two functions.  These functions should work silently, only making changes to the inventory (we'll talk about why later - you will have the opportunity to tell the user at another point).
+There now follow two functions.  These functions should work silently, only making changes to the inventory - we'll set up a separate listener later than can be used to inform the user that the purchase has been successful (the reason for the split is related to how restores are handled).
 
  - onPurchase: this function is called following a successful purchase.  In the example above, an item called "unlock" with the value "true" is added to the inventory.
  - onRefund: this function is called following a refund.  In the above, the "unlock" item is removed from the inventory (the *true* value indicates that the item should be completely removed from the inventory, rather than having its quantity set to zero).
