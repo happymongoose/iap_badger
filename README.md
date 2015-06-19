@@ -65,7 +65,7 @@ Note that if you are connecting to Google Play, you will need to set up your **b
 
 #####Setting up the catalogue
 
-IAP Badger essentially handles two separate tasks: handling calls to and from the app stores, and managing an inventory of items that have been purchased.  So in order to function, you need to provide a catalogue that conveys these two types of information.  An empty catalogue would look like this:
+IAP Badger essentially handles two separate tasks: handling calls to and from the app stores, and managing an inventory of items that have been purchased.  On initialisation, you will need to provide a catalogue that conveys these two types of information.  An empty catalogue would look like this:
 
 ```lua
 
