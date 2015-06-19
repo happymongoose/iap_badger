@@ -97,10 +97,12 @@ local catalogue = {
 			--The product type
 			productType = "non-consumable",
 			
-			--This function is called when a purchase is complete.
+			--This function is called when a purchase is complete or a restore is made.
+			--Only changes to the inventory should be made within this function.
 			onPurchase=function() iap.setInventoryValue("unlock", true) end,
 			
-			--The function is called when a refund is made
+			--The function is called when a refund is made.
+			--Only changes to the inventory should be made within this function.
 			onRefund=function() iap.removeFromInventory("unlock", true) end,
 
 		}
@@ -113,7 +115,7 @@ local catalogue = {
 
 In this example, we create a product called *removeAds*.  In the future, whenever our code talks to IAP Badger, we will refer to the product as *removeAds*, regardless of what you have named the product in iTunes Connect or Google Play Developer Console.
 
-The first item in *removeAds* is the *productNames* table.  This contains a list of product identifiers that correspond to how your removeAds product has been set in iTunes Connect, Google Play, Amazon etc.  This table allows your product to have different names in different app stores.  In the example above, our *remove_ads* product has been given the identifier *remove_ads* by one programmer in iTunes Connect, but another has given it the name *REMOVE_BANNER* in Google Play.  When you tell IAP Badger that you want to purchase *removeAds*, it will automatically work out what the correct identifier is depending on which store you are connecting to.
+The first item in *removeAds* is the *productNames* table.  This contains a list of product identifiers that correspond to how the removeAds product has been set up in iTunes Connect, Google Play, Amazon etc.  In the example above, our *remove_ads* product has been given the identifier *remove_ads* in iTunes Connect, but *REMOVE_BANNER* is used in Google Play.  When you tell IAP Badger that you want to purchase *removeAds*, it will automatically work out what the correct identifier is depending on which store you are connecting to.
 
 *(Note that setting up products on Google Play, Amazon, iTunes Connect et al is beyond the scope of this tutorial).*
 
