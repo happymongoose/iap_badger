@@ -114,7 +114,7 @@ local catalogue = {
 
 In this example, we create a product called *removeAds*.  In the future, whenever our code talks to IAP Badger, we will refer to the product as *removeAds*, regardless of what you have named the product in iTunes Connect or Google Play Developer Console.
 
-The first item in *removeAds* is the *productNames* table.  This contains a list of product identifiers that correspond to how your removeAds product has been set in iTunes Connect, Google Play, Amazon etc.  This table allows your product to have different names in different app stores.  In the example above, our *remove_ads* product has the identifier *remove_ads* by one programmer in iTunes Connect, but another has given it the name *REMOVE_BANNER* in Google Play.  When you tell IAP Badger that you want to purchase *removeAds*, it will automatically work out what the correct identifier is depending on which store you are connecting to.
+The first item in *removeAds* is the *productNames* table.  This contains a list of product identifiers that correspond to how your removeAds product has been set in iTunes Connect, Google Play, Amazon etc.  This table allows your product to have different names in different app stores.  In the example above, our *remove_ads* product has been given the identifier *remove_ads* by one programmer in iTunes Connect, but another has given it the name *REMOVE_BANNER* in Google Play.  When you tell IAP Badger that you want to purchase *removeAds*, it will automatically work out what the correct identifier is depending on which store you are connecting to.
 
 *(Note that setting up products on Google Play, Amazon, iTunes Connect et al is beyond the scope of this tutorial).*
 
@@ -123,9 +123,9 @@ The *product_type* value can be one of two values: **consumable** or **non-consu
 There now follow two functions.  These functions should work silently, only making changes to the inventory (we'll deal with telling the user about successful purchases later).
 
  - onPurchase: this function is called following a successful purchase.  In the example above, an item called "unlock" with the value "true" is added to the inventory.
- - onRefund: this function is called following a refund.  In the above, the "unlock" item is removed from the inventory (the *true* value indicates that the item should be completely removed from the inventory).
+ - onRefund: this function is called following a refund.  In the above, the "unlock" item is removed from the inventory (the *true* value indicates that the item should be completely removed from the inventory, rather than having its quantity set to zero).
 
-Now let's add a simple inventory item to the catalogue.  The inventory items simply tell IAP Badger a little about how the items should be handled in the inventory.
+Now let's add a simple inventory item to the catalogue.  The inventory items table tells IAP Badger how the items should be handled in the inventory when they are manipulated, or a load/save operation is carried out.
 
 ```lua
 
@@ -150,7 +150,6 @@ local catalogue = {
 			onRefund=function() iap.removeFromInventory("unlock", true) end,
 
 		}
-	},
 	},
 
 	--Information about how to handle the inventory item
@@ -180,7 +179,7 @@ local iapOptions = {
 iap.init(iapOptions)
 ```
 
-When IAP Badger saves the inventory, it prepends a hash to secure the contents.  If the user attempts to alter the contents of the file, IAP Badger will detect the change and refuse to load the table.  Enter a value known only to you in **salt** to make the hash difficult to crack by malicious users - it can be anything, a string concatenated to random number and the device UDID.  Be aware that once you have chosen the salt and gone into production, however, the salt cannot be easily changed.
+When IAP Badger saves the inventory, it prepends a hash to secure the contents.  If the user attempts to alter the contents of the file, IAP Badger will detect the change and refuse to load the table.  Enter a value known only to you in **salt** to make the hash difficult to crack by malicious users - it can be anything, a string concatenated to random number and the device UDID, whatever you like.  Be aware that once you have chosen the salt and gone into production, however, the salt should not be changed.
 
 #####Making a purchase
 
@@ -216,7 +215,7 @@ The *iap.purchase* function calls IAP Badger with the name of the product to buy
 * The function identified within the product catalogue should work silently, handling inventory changes - this is partially because it can be called during a product restore cycle, as well as during a purchase.
 * The function identified in the *iap.purchase* function can be as noisy as you like, sending all sorts of messages to the user, playing congratulatory sounds and making screen changes.  
 
-Remember: keep product catalogue callbacks for silent inventory changes.
+Remember: product catalogue callbacks make silent inventory changes - that's all.
 
 #####Product restores
 
@@ -264,9 +263,9 @@ iap.restore(false, restoreListener, restoreTimeout)
 
 *iap.restore* requires three parameters.  The first is a boolean to indicate whether non-consumable items should be completely removed from the inventory before the restore is made (normally not necessary - but this can be useful for debugging).  The second is the restore callback when a successful restore has been made.  The third is a timeout callback.
 
-The restore callback should check the contents of event.firstRestoreCallback - this will be set to true if this is the first item to be restored.  If it is the case, the callback function should remove any progress spinners and tell the user their products are being restored.  For apps with many products, the callback function may be called a number of times, so this kind of 'noisy' action should only be carried out once.  The app store never tells IAP Badger how many products are due to be restored, and whether this is the last product to be restored, so this approach lets the user now that a restore is in operation.
+The restore callback should check the contents of event.firstRestoreCallback - this will be set to true if this is the first item to be restored.  If it is the case, the callback function should remove any progress spinners and tell the user their products are being restored.  For apps with many products, the callback function may be called a number of times, so this kind of 'noisy' action should only be carried out once.  The app store never tells IAP Badger how many products are due to be restored, and whether this is the last product to be restored, so this approach lets the user know that a restore is going to be successful.
 
-The timeout callback is necessary because there is no guarantee that the app store will ever reply to a restore request (in fact, if the user has never bought a product for this app, it never will).  The timeout function is called after a given duration to tell your app that nothing is forthcoming, and you should tell the user the restore failed.
+The timeout callback is necessary because there is no guarantee that the app store will ever reply to a restore request (in fact, if the user has never bought a product for this app, it never will).  The timeout function is called after a given duration to tell your app that nothing is forthcoming, and you should tell the user that the restore failed.
 
 So in summary:
 
@@ -277,7 +276,7 @@ So in summary:
 
 IAP Badger will automatically load the inventory when the *init* function is called.
 
-To save the inventory, call:
+To save the inventory, call the following when your app is suspended or quits:
 
 ```lua
 --Save inventory
