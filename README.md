@@ -152,7 +152,7 @@ local catalogue = {
 			--This function is called when a purchase is complete.
 			onPurchase=function() iap.setInventoryValue("unlock", true) end,
 			
-			--The function is called when a refund is made
+			--This function is called when a refund is made
 			onRefund=function() iap.removeFromInventory("unlock", true) end,
 
 		}
