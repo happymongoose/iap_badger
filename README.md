@@ -106,7 +106,7 @@ local catalogue = {
 			--Only changes to the inventory should be made within this function.
 			onPurchase=function() iap.setInventoryValue("unlock", true) end,
 			
-			--The function is called when a refund is made.
+			--This function is called when a refund is made.
 			--Only changes to the inventory should be made within this function.
 			onRefund=function() iap.removeFromInventory("unlock", true) end,
 
