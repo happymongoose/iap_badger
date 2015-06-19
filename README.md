@@ -4,7 +4,7 @@ A unified approach to in-app purchases with Corona SDK
 
 ## Purpose:
 
-Although Corona SDK offers an IAP API that is quite similar across the app stores, there are differences depending on whether you are connecting to Apple's App Store, Google Play or through Amazon.  I wanted to produce a unified approach to IAP processing, that meant I could write one piece of code that would function whatever the device.  The result is IAP badger.
+Although Corona SDK offers an IAP API that is quite similar across the app stores, there are differences depending on whether you are connecting to Apple's App Store, Google Play or through Amazon.  I wanted to produce a unified approach to IAP processing that allowed me to write one piece of code that would function whatever the device or store.  The result is IAP badger.
 
 
 ### General features:
@@ -26,6 +26,11 @@ Although Corona SDK offers an IAP API that is quite similar across the app store
 * quantities / values can also be disguised / obfuscated
 * fake items can be added to the inventory, whose values change randomly with each save, to help disguise the function of other quantities being saved at the same time.
 * IAP badger can generate an Amazon test JSON file automatically, to help with testing on Amazon hardware
+
+### What it doesn't do
+
+* it doesn't handle subscriptions - I personally don't have any need to process these kinds of transactions (but by all means feel free to fork to code and share with others)
+* it doesn't do all out encryption - I've gone for an obfuscation approach for reasons detailed later in this article.  Encryption would be very easy to add to the code base, however.
 
 
 ### How to use:
