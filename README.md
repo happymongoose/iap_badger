@@ -124,7 +124,7 @@ The first item in *removeAds* is the *productNames* table.  This contains a list
 
 *(Note that setting up products on Google Play, Amazon, iTunes Connect et al is beyond the scope of this tutorial).*
 
-The *product_type* value can be one of two values: **consumable** or **non-consummable**.  **consumable** items are like gold coins in a game that can be purchased and then spent, or used up.  The user can purchase and re-purchase consumable items to their hearts content.  **non-consummable** items can only be purchased once, and can be restored by the user if they ever delete and re-install the app, or purchase a new device.  The *removeAds* product is non-consummable,.
+The *product_type* value can be one of two values: **consumable** or **non-consummable**.  **consumable** items are like gold coins in a game that can be purchased and then spent, or used up.  The user can purchase and re-purchase consumable items to their heart's content.  **non-consummable** items can only be purchased once, and can be restored by the user if they ever delete and re-install the app, or purchase a new device.  The *removeAds* product is non-consummable,.
 
 There now follow two functions.  These functions should work silently, only making changes to the inventory (we'll talk about why later - you will have the opportunity to tell the user at another point).
 
