@@ -9,7 +9,7 @@ Although Corona SDK offers an IAP API that is quite similar across the app store
 
 ### General features:
 
-* a unified approach to calling store and IAP whether you're on the App Store, Google Play, or wherever
+* a unified approach to calling IAP functions, whether you're on the App Store, Google Play, or wherever
 * simplified calling and testing of IAP functions - just provide IAP Badger with a list of products and some simple callbacks for when items are purchased / restored or refunded
 * a testing mode, so your IAP functions can be tested on the simulator or a real device without having to contact an actual app store.
 * simplified product maintenance (adding/removing products from the inventory)
