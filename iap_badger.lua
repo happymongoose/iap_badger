@@ -168,7 +168,7 @@ local catalogue = {
             onRefund=function() 
                 iap.removeFromInventory("coins", 50)
             end,
-            productType="non-consumable"
+            productType="consumable"
         },
     }
     
