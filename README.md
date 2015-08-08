@@ -4,13 +4,13 @@ A unified approach to in-app purchases with Corona SDK
 
 ## Purpose:
 
-Although Corona SDK offers an IAP API that is quite similar across the app stores, there are differences depending on whether you are connecting to Apple's App Store, Google Play or through Amazon.  I wanted to produce a unified approach to IAP processing that allowed me to write one piece of code that would function whatever the device or store.  The result is IAP badger.
+Although Corona SDK offers an IAP API that is quite similar across the app stores, there are differences depending on whether you are connecting to Apple's App Store, Google Play or through Amazon.  I wanted to produce a unified approach to IAP processing, that meant I could write one piece of code that would function whatever the device.  The result is IAP badger.
 
 
 ### General features:
 
-* a unified approach to calling IAP functions, whether you're on the App Store, Google Play, or wherever
-* simplified calling and testing of IAP functions - just provide IAP Badger with a list of products and some simple listeners for when items are purchased / restored or refunded
+* a unified approach to calling store and IAP whether you're on the App Store, Google Play, or wherever
+* simplified calling and testing of IAP functions - just provide IAP Badger with a list of products and some simple callbacks for when items are purchased / restored or refunded
 * a testing mode, so your IAP functions can be tested on the simulator or a real device without having to contact an actual app store.
 * simplified product maintenance (adding/removing products from the inventory)
 * handling of loading / saving of items that have been purchased
@@ -21,19 +21,15 @@ Although Corona SDK offers an IAP API that is quite similar across the app store
 ### Inventory / security features:
 
 * customise the filename used to save the contents of the inventory
-* inventory file contents can be hashed to prevent unauthorised changes (specify a 'salt' in the init() function  Empty inventories are saved without a hash, to make it more difficult to reverse engineer the salt.)
+* inventory file contents can be hashed to prevent unauthorised changes (specify a 'salt' in the init() function).
+* a customisable 'salt' can be applied to the contents so no two Corona apps produce the same hash for the same inventory contents.  (Empty inventories are saved without a hash, to make it more difficult to reverse engineer the salt.)
 * product names can be refactored (renamed) in the save file to disguise their true function
 * quantities / values can also be disguised / obfuscated
 * fake items can be added to the inventory, whose values change randomly with each save, to help disguise the function of other quantities being saved at the same time.
-* IAP badger can generate an Amazon test JSON file automatically, to help with testing on Amazon hardware
-
-### What it doesn't do
-
-* it doesn't handle subscriptions - I personally don't have any need to process these kinds of transactions (but by all means feel free to fork to code and share with others)
-* it doesn't do all out encryption - I've gone for an obfuscation approach for reasons detailed later in this article.  Encryption would be very easy to add to the code base, however.
+* IAP badger can generate a Amazon test JSON file for you, to help with testing on Amazon hardware
 
 
-### How to use:
+### How to use: non-consumable items
 
 
 #### Example 1: remove advertisements from an app
@@ -70,7 +66,7 @@ Note that if you are connecting to Google Play, you will need to set up your **b
 
 #####Setting up the catalogue
 
-IAP Badger essentially handles two separate tasks: handling calls to and from the app stores, and managing an inventory of items that have been purchased.  On initialisation, you will need to provide a catalogue that conveys these two types of information.  An empty catalogue would look like this:
+IAP Badger essentially handles two separate tasks: handling calls to and from the app stores, and managing an inventory of items that have been purchased.  So in order to function, you need to provide a catalogue that conveys all these two types of information.  An empty catalogue would look like this:
 
 ```lua
 
@@ -102,12 +98,10 @@ local catalogue = {
 			--The product type
 			productType = "non-consumable",
 			
-			--This function is called when a purchase is complete or a restore is made.
-			--Only changes to the inventory should be made within this function.
+			--This function is called when a purchase is complete.
 			onPurchase=function() iap.setInventoryValue("unlock", true) end,
 			
-			--This function is called when a refund is made.
-			--Only changes to the inventory should be made within this function.
+			--The function is called when a refund is made
 			onRefund=function() iap.removeFromInventory("unlock", true) end,
 
 		}
@@ -120,18 +114,18 @@ local catalogue = {
 
 In this example, we create a product called *removeAds*.  In the future, whenever our code talks to IAP Badger, we will refer to the product as *removeAds*, regardless of what you have named the product in iTunes Connect or Google Play Developer Console.
 
-The first item in *removeAds* is the *productNames* table.  This contains a list of product identifiers that correspond to how the removeAds product has been set up in iTunes Connect, Google Play, Amazon etc.  In the example above, our *remove_ads* product has been given the identifier *remove_ads* in iTunes Connect, but *REMOVE_BANNER* is used in Google Play.  When you tell IAP Badger that you want to purchase *removeAds*, it will automatically work out what the correct identifier is depending on which store you are connecting to.
+The first item in *removeAds* is the *productNames* table.  This contains a list of product identifiers that correspond to how your removeAds product has been set in iTunes Connect, Google Play, Amazon etc.  This table allows your product to have different names in different app stores.  In the example above, our *remove_ads* product has the identifier *remove_ads* by one programmer in iTunes Connect, but another has given it the name *REMOVE_BANNER* in Google Play.  When you tell IAP Badger that you want to purchase *removeAds*, it will automatically work out what the correct identifier is depending on which store you are connecting to.
 
 *(Note that setting up products on Google Play, Amazon, iTunes Connect et al is beyond the scope of this tutorial).*
 
-The *product_type* value can be one of two values: **consumable** or **non-consummable**.  **consumable** items are like gold coins in a game that can be purchased and then spent, or used up.  The user can purchase and re-purchase consumable items to their heart's content.  **non-consummable** items can only be purchased once, and can be restored by the user if they ever delete and re-install the app, or purchase a new device.  The *removeAds* product is non-consummable.
+The *product_type* value can be one of two values: **consumable** or **non-consummable**.  **consumable** items are like gold coins in a game that can be purchased and then spent, or used up.  The user can purchase and re-purchase consumable items to their hearts content.  **non-consummable** items can only be purchased once, and can be restored by the user if they ever delete and re-install the app, or purchase a new device.  The *removeAds* product is non-consummable,.
 
-There now follow two functions.  These functions should work silently, only making changes to the inventory - we'll set up a separate listener later than can be used to inform the user that the purchase has been successful (the reason for the split is related to how restores are handled).
+There now follow two functions.  These functions should work silently, only making changes to the inventory (we'll deal with telling the user about successful purchases later).
 
  - onPurchase: this function is called following a successful purchase.  In the example above, an item called "unlock" with the value "true" is added to the inventory.
- - onRefund: this function is called following a refund.  In the above, the "unlock" item is removed from the inventory (the *true* value indicates that the item should be completely removed from the inventory, rather than having its quantity set to zero).
+ - onRefund: this function is called following a refund.  In the above, the "unlock" item is removed from the inventory (the *true* value indicates that the item should be completely removed from the inventory).
 
-Now let's add a simple inventory item to the catalogue.  The inventory items table tells IAP Badger how the items should be handled in the inventory when they are manipulated, or a load/save operation is carried out.
+Now let's add a simple inventory item to the catalogue.  The inventory items simply tell IAP Badger a little about how the items should be handled in the inventory.
 
 ```lua
 
@@ -152,10 +146,11 @@ local catalogue = {
 			--This function is called when a purchase is complete.
 			onPurchase=function() iap.setInventoryValue("unlock", true) end,
 			
-			--This function is called when a refund is made
+			--The function is called when a refund is made
 			onRefund=function() iap.removeFromInventory("unlock", true) end,
 
 		}
+	},
 	},
 
 	--Information about how to handle the inventory item
@@ -185,7 +180,7 @@ local iapOptions = {
 iap.init(iapOptions)
 ```
 
-When IAP Badger saves the inventory, it prepends a hash to secure the contents.  If the user attempts to alter the contents of the file, IAP Badger will detect the change and refuse to load the table.  Enter a value known only to you in **salt** to make the hash difficult to crack by malicious users - it can be anything, a string concatenated to random number and the device UDID, whatever you like.  Be aware that once you have chosen the salt and gone into production, however, the salt should not be changed.
+When IAP Badger saves the inventory, it prepends a hash to secure the contents.  If the user attempts to alter the contents of the file, IAP Badger will detect the change and refuse to load the table.  Enter a value known only to you in **salt** to make the hash difficult to crack by malicious users - it can be anything, a string concatenated to random number and the device UDID, whatever you like.  Be aware that once you have chosen the salt and gone into production, however, the salt cannot be easily changed.
 
 #####Making a purchase
 
@@ -193,7 +188,7 @@ The following code will handle the purchase of our remove banner item:
 
 ```lua
 
---The purchase listener function
+--The callback function
 --IAP will call purchaseListener with the name of the product
 local function purchaseListener(product)
 
@@ -216,16 +211,16 @@ iap.purchase("removeAds", purchaseListener)
 
 The *iap.purchase* function calls IAP Badger with the name of the product to buy - remember, this will be its identifier in the product catalogue, **not** the identifier used on iTunes Connect or Google Play.  It also supplies the name of the function to call if the purchase is successful.
 
-**Why two purchase listener functions?** You may have noticed there are two listener functions: one within the catalogue, and one named explicitly from the *iap.purchase* function.
+**Why two callback functions?** You may have noticed there are two callback functions: one within the catalogue, and one named explicitly from the *iap.purchase* function.
 
 * The function identified within the product catalogue should work silently, handling inventory changes - this is partially because it can be called during a product restore cycle, as well as during a purchase.
 * The function identified in the *iap.purchase* function can be as noisy as you like, sending all sorts of messages to the user, playing congratulatory sounds and making screen changes.  
 
-Remember: product catalogue listeners make silent inventory changes - and that's all they should do.
+Remember: keep product catalogue callbacks for silent inventory changes.
 
 #####Product restores
 
-The product restore cycle works in a very similar way.  There is only one slight difference - in your listener function, IAP Badger will let you know whether this is the first item that has been restored.
+The product restore cycle works in a very similar way.  There is only one slight difference - in your callback function, IAP Badger will let you know whether this is the first item that has been restored.
 
 ```lua
 
@@ -267,11 +262,11 @@ iap.restore(false, restoreListener, restoreTimeout)
 ```
 
 
-*iap.restore* requires three parameters.  The first is a boolean to indicate whether non-consumable items should be completely removed from the inventory before the restore is made (normally not necessary - but this can be useful for debugging).  The second is the restore listener function to be called when a successful restore has been made.  The third is a timeout listener.
+*iap.restore* requires three parameters.  The first is a boolean to indicate whether non-consumable items should be completely removed from the inventory before the restore is made (normally not necessary - but this can be useful for debugging).  The second is the restore callback when a successful restore has been made.  The third is a timeout callback.
 
-The restore listener should check the contents of event.firstRestoreCallback - this will be set to true if this is the first item to be restored.  If it is the case, the listener function should remove any progress spinners and tell the user their products are being restored.  For apps with many products, the listener function may be called a number of times, so this kind of 'noisy' action should only be carried out once.  The app store never tells IAP Badger how many products are due to be restored, and whether this is the last product to be restored, so this approach lets the user know that a restore is going to be successful and then quietly gets on with the busywork.  In practice, by the time the user has read the message, the rest of the products have been restored in the background anyway.
+The restore callback should check the contents of event.firstRestoreCallback - this will be set to true if this is the first item to be restored.  If it is the case, the callback function should remove any progress spinners and tell the user their products are being restored.  For apps with many products, the callback function may be called a number of times, so this kind of 'noisy' action should only be carried out once.  The app store never tells IAP Badger how many products are due to be restored, and whether this is the last product to be restored, so this approach lets the user now that a restore is in operation.
 
-The timeout listener is necessary because there is no guarantee that the app store will ever reply to a restore request (in fact, if the user has never bought a product for this app, it never will).  The timeout function is called after a given duration to tell your app that nothing is forthcoming, and you should tell the user that the restore failed.
+The timeout callback is necessary because there is no guarantee that the app store will ever reply to a restore request (in fact, if the user has never bought a product for this app, it never will).  The timeout function is called after a given duration to tell your app that nothing is forthcoming, and you should tell the user the restore failed.
 
 So in summary:
 
@@ -282,7 +277,7 @@ So in summary:
 
 IAP Badger will automatically load the inventory when the *init* function is called.
 
-To save the inventory, call the following when your app is suspended or quits:
+To save the inventory, call:
 
 ```lua
 --Save inventory
@@ -294,7 +289,7 @@ iap.saveInventory()
 
 **And that's it.**
 
-By providing IAP Badger with the catalogue, a purchase listener and two restore listener, the library will handle all API calls to Apple, Amazon and Google Play.  It will handle loading and saving inventories, initialising the app stores and varying product identifiers automatically.
+By providing IAP Badger with the catalogue, a purchase callback and two restore callbacks, the library will handle all API calls to Apple, Amazon and Google Play.  It will handle loading and saving inventories, initialising the app stores and varying product identifiers automatically.
 
 ###Testing and debugging on the simulator
 
@@ -322,10 +317,256 @@ local iapOptions = {
 iap.init(iapOptions)
 ```
 
-You can now debug your in app purchases on the simulator.  When the iap.purchase or iap.restore functions are called, you will receive an alert box asking you how you would the app store to respond (eg. successful purchase, cancelled by user, failed transaction).  Your listener functions will receive exactly the same information they will receive in the live environment, so you can test and step through code to make sure it works correctly.
+You can now debug your in app purchases on the simulator.  When the iap.purchase or iap.restore functions are called, you will receive an alert box asking you how you would the app store to respond (eg. successful purchase, cancelled by user, failed transaction).  Your callback functions will receive exactly the same information they will receive in the live environment, so you can test and step through code to make sure it works correctly.
 
 The debug mode can also be set to work on a real device.  If IAP Badger detects it is being run on a device, you will receive a warning when the library is initialised.  This is to make sure you don't accidentally send this version of the code to the app store.
 
+### How to use: consumable items
 
-There is more, but I have tired fingers now...
+####Example 2: Purchasing coins (as in game currency)
 
+The example code given above shows how to handle non-consumable items in the player inventory (ie. the user has purchased them, or they haven't.)  Non-consumable items don't really have a quantity as such - they are present or absent.
+
+The following section looks at how to implement consumable items, such as packs of coins that can be spent on in game items.  Once the user has spent all of their coins, they have run out.  Consumable items cannot be restored from the App Store; if the user wants another pack of coins to use in the game, they will need to make another purchase.
+
+The code for handling consumable items is very similar to non-consumable items.  Here's how to set up a consumable item in the product catalogue.
+
+
+
+```lua
+    local catalogue = {
+    
+    	products= {
+    	
+    		buy50coins = {
+    		
+    			--Specify product identifiers on the App Store.
+    			productNames = { apple="buy50coins", google="50_coins",
+    				amazon="COINSx50" },
+    
+			    --Product type
+			    productType="consumable",
+			    
+    			--Listener for when a purchase is made (silent function)
+    			onPurchase = function()
+    				iap.addToInventory("coins", 50)
+    			end,
+    			
+    			--Listener for when a refund is made (silent function)
+    			onRefund = function()
+	    			iap.removeFromInventory("coins", 50)
+	    		end,
+
+    		}
+    	}
+    
+    }
+```
+
+The key differences in the product catalogue are:
+
+ - The product type is identified as "consumable".
+ - In the purchase listener, the iap.addToInventory function specifies a quantity to add (ie. 50 coins). 
+ - In the refund listener, the iap.removeFromInventory function also specifies a quantity to remove.
+
+Now let's add the inventory item.
+
+```lua
+
+    local catalogue = {
+    
+	    inventoryItems = {
+	    
+			--Create an item to hold the current number of coins being held by the player.
+			coins = {
+				productType="consumable"
+			}
+			
+	    },
+	    
+    	products= {
+    	
+    		buy50coins = {
+    		
+    			--Specify product identifiers on the App Store.
+    			productNames = { apple="buy50coins", google="50_coins",
+    				amazon="COINSx50" },
+    
+			    --Product type
+			    productType="consumable",
+			    
+    			--Listener for when a purchase is made (silent function)
+    			onPurchase = function()
+    				iap.addToInventory("coins", 50)
+    			end,
+    			
+    			--Listener for when a refund is made (silent function)
+    			onRefund = function()
+	    			iap.removeFromInventory("coins", 50)
+	    		end,
+
+    		}
+    	}
+    
+    }
+
+
+```
+
+And that's it.
+
+#####Initialising a purchase
+
+The rest of the code for handling purchases is the same as for non-consumable products - you simply call iap.purchase() with a listener function that gets called when the process is complete.
+
+```lua
+
+--The callback function
+--IAP will call purchaseListener with the name of the product
+local function purchaseListener(product)
+
+	--Check the product name...
+	--(not really necessary with a one-product catalogue...)
+	if (product=="buy50coins") then
+		--Update the coin counter text to show how many coins the user is carrying.
+		coinText.text = iap.getInventoryValue("coins") .. " coins"
+		--Tell the user the ads have been removed
+		native.showAlert("Purchase complete", "You now have 50 more coins.", {"Okay"})
+	end
+	
+end
+
+--Make the purchase
+iap.purchase("buy50coins", purchaseListener)
+
+
+```
+
+In the above example, a text label is updated to show the new quantity of coins the player is now holding.  iap.getInventoryValue("coins") returns the current number of coins the user is carrying - the inventory will be updated before the 'noisy' purchase listener function is called.
+
+#####Restoring
+
+Consumable items cannot be restored from the App Store.  If IAP Badger detects a request to restore a consumable item, this is presumably suspect and will be ignored.
+
+
+##### Saving and loading
+
+As for consumable items, IAP Badger will automatically handle the inventory management when iap.saveInventory() is called.  
+
+#####Changing quantities during the game
+
+The functions iap.addToInventory and iap.removeFromInventory can be called at any time to increase or decrease quantities of an item.  Additionally, iap.setInventoryValue("product", value) can be called to set the quantity of an item to a specific value.
+
+For example, during the game, the user may want to spend their coins on purchasing an extra life.  To take account of this spending, make a call to iap.removeFromInventory, specifying how many coins have been spent.
+
+For example:
+
+```Lua
+
+local function purchaseExtraLives()
+
+	--Give the player an extra life
+	lives = lives + 1
+	
+	--Deduct 10 coins from the player's wallet
+	iap.removeFromInventory("coins", 50)
+	
+end
+
+```
+
+#####Additional product packs
+
+It may be the case that you have different size coin packs available for purchase for your app - for example, the user could purchase a 50 coins or 100 coins.  To implement this, just add an additional product to the product catalogue.
+
+```Lua
+
+    local catalogue = {
+    
+	    inventoryItems = {
+	    
+			--Create an item to hold the current number of coins being held by the player.
+			coins = {
+				productType="consumable"
+			}
+			
+	    },
+	    
+    	products= {
+    	
+	    	--The 50 coin pack
+    		buy50coins = {
+    		
+    			--Specify product identifiers on the App Store.
+    			productNames = { apple="buy50coins", google="50_coins",
+    				amazon="COINSx50" },
+    
+			    --Product type
+			    productType="consumable",
+			    
+    			--Listener for when a purchase is made (silent function)
+    			onPurchase = function()
+    				iap.addToInventory("coins", 50)
+    			end,
+    			
+    			--Listener for when a refund is made (silent function)
+    			onRefund = function()
+	    			iap.removeFromInventory("coins", 50)
+	    		end,
+
+    		},
+
+	    	--The 100 coin pack
+    		buy100coins = {
+    		
+    			--Specify product identifiers on the App Store.
+    			productNames = { apple="buy100coins", google="100_coins",
+    				amazon="COINSx100" },
+    
+			    --Product type
+			    productType="consumable",
+			    
+    			--Listener for when a purchase is made (silent function)
+    			onPurchase = function()
+    				iap.addToInventory("coins", 100)
+    			end,
+    			
+    			--Listener for when a refund is made (silent function)
+    			onRefund = function()
+	    			iap.removeFromInventory("coins", 100)
+	    		end,
+
+    		}
+    	}
+    
+    }
+
+```
+
+
+###App Store information
+
+####Getting product price information
+
+IAP Badger can contact the appropriate App Store and request product pricing information in the user's local currency.  This requires two calls: one to request that IAP Badger downloads a copy of the product catalogue from the App Store, and another to give your code a copy of it.
+
+Initially, make a call to **iap.loadProducts()** to download the product catalogue.  It is advisable to do this as early as possible, just after calling **iap.init()**, as there is a delay between making the call and receiving the product information.   Currently, pricing information can only be requested on the Apple App Store and through Google Play.  If a request is made to iap.loadProducts on a store that does not support pricing requests (such as Amazon), it will be ignored.
+
+Once the pricing information has been received, you can then ask IAP Badger to give you a copy in table form.  This table be queried to find the price of an item in the user's local currency.  The following example retrieves the price for a 50 coin and 100 coin pack for the consumable items discussed above.
+
+```Lua
+
+--Request a copy of the loadProducts catalogue (delivered from the appropriate App Store)
+local lpCatalogue = iap.getLoadProductsCatalogue()
+
+--Get the localized price for 50 coins and 100 coins.
+--Use the identifier specified in your product catalogue.
+local priceFor50Coins = loadProductsCatalogue.buy50coins.localizedPrice
+local priceFor100Coins = loadProductsCatalogue.buy100coins.localizedPrice
+
+```
+
+As with all of the other functions in IAP Badger, you should query the table returned by iap.getLoadProductsCatalogue using product identifier specified in your product catalogue (*buy50coins*), **not** the identifier for the item in the App Store (not *buy50coins* or *50_coins*).
+
+
+To be continued...
