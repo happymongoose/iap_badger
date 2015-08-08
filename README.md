@@ -568,5 +568,51 @@ local priceFor100Coins = loadProductsCatalogue.buy100coins.localizedPrice
 
 As with all of the other functions in IAP Badger, you should query the table returned by iap.getLoadProductsCatalogue using product identifier specified in your product catalogue (*buy50coins*), **not** the identifier for the item in the App Store (not *buy50coins* or *50_coins*).
 
+You can also set up debug price information in the product catalogue:
+
+```Lua
+
+local catalogue = {
+
+	inventoryItems = {
+		--Inventory items go here...
+	},
+	
+	products = {
+	
+	    	--The 100 coin pack
+    		buy100coins = {
+    		
+    			--Specify product identifiers on the App Store.
+    			productNames = { apple="buy100coins", google="100_coins",
+    				amazon="COINSx100" },
+    
+			    --Product type
+			    productType="consumable",
+			    
+			    --Simulator information for product pricing
+				simulatorPrice = "£0.79",
+				simulatorDescription = "A pack of 100 shiny gold coins.",
+				simulatorTitle = "100 coins",
+				
+    			--Listener for when a purchase is made (silent function)
+    			onPurchase = function()
+    				iap.addToInventory("coins", 100)
+    			end,
+    			
+    			--Listener for when a refund is made (silent function)
+    			onRefund = function()
+	    			iap.removeFromInventory("coins", 100)
+	    		end,
+		   }
+	}
+	
+
+}
+
+
+```
+
+This can be useful during early development when you are working on the Corona simulator.
 
 To be continued...
