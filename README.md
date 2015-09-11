@@ -615,4 +615,238 @@ local catalogue = {
 
 This can be useful during early development when you are working on the Corona simulator.
 
-To be continued...
+####Generating an Amazon test JSON file
+
+IAP Badger can generate the JSON file necessary to test your product on an Amazon device (eg. the Kindle Fire).  To print out the JSON representing your product catalogue to the console, use the following:
+
+```Lua
+--The following assumes you have created already set up a product catalogue as in the above examples.
+ 
+--Initialise IAP (the options specified in iapOptions do not impact on this example)
+iap.init(iapOptions)
+
+--Print JSON for Amazon devices to the console window
+print(iap.generateAmazonJSON())
+
+```
+
+Now copy and paste the console output and save it as a separate file.  This can be loaded onto your Amazon device and be used to test your IAP functionality.
+
+
+
+###Security
+
+The default security included with IAP Badger is intended to make it difficult for someone with a rooted device to open your application folder and amend the settings files to gain free access to in-app purchases.  If you include the device UDID as part of the salt in your catalogue, it will also mean a user cannot easily copy settings files from one rooted device to another.  IAP Badger can improve this level of security by refactoring (renaming) the identifiers and quantities held within the inventory, so as to disguise their true meaning.
+
+There are several reasons why an obfuscation, rather than a encryption, approach has been adopted:
+
+- The use of encryption is the USA and France involves registering for additional certificates from the authorities; the number of countries this is applicable to is only going to increase.
+- The use of encryption does not protect your application's data from someone who is intent on hacking your code.  In fact, it gives you a false sense of security that your app is safe.
+- The approach taken should be enough to deter most casual users from hacking your IAP's - the additional time spent investing in developing over-secure systems to deter a handful of hackers could be better spent building new apps for the world to enjoy.
+- IAP purchases are also subject to insecurities in DNS and server re-routing, which are outside the capabilities of the app to detect.
+
+For those who wish to add encryption to their data files, just include the standard Corona openssl library at the top of the IAP Badger source code, and add encryption / decryption to the saveTable and loadTable routines.
+
+####Refactoring (renaming)
+
+IAP Badger can accept a refactoring table that is used to disguise the name and quantity of each item in the inventory.  Once the refactoring table has been passed, the calling program only needs to worry about the real names and quantities for each item.
+
+#####Refactoring simple boolean values
+
+Let's go back to our very first example: a program to indicate whether the user has paid to remove advertisements from an app.  In the product catalogue, the saved inventory was described by the following table:
+
+```Lua
+	--Information about how to handle the inventory item
+	inventoryItems = {
+		unlock = { productType="non-consumable" }
+	}
+```
+
+IAP Badged saves the inventory file as JSON on the user's device.  The (abbreviated) output from the inventory file for the unlock item would look something like this:
+
+```JSON
+"unlock":{"value":true}
+```
+
+If a user were to root / jailbreak their device, and look at that file, it would be clear what the purpose of the contents were.  By adding some refactor information, we can alter how that information is saved to the file to disguise its true purpose.  For instance, it is a lot harder for the casual user to work out that the following obfuscated line has exactly the same purpose - to remove advertisements from the app. 
+
+```JSON
+"lastUserTxRefreshTimer":{"ms":628}
+```
+
+We can get IAP Badger to disguise the true nature of quantities in the save file by providing a **refactor table**.  Once this has been done, IAP Badger will automatically handle all the refactoring of fields and quantities for us - our code only has to address the real field names and values used in the inventory.
+
+The refactor table tells IAP Badger exactly how to obfuscate the items and quantities for the items in the inventory.  (Incidentally, not every item in the inventory has to have an entry in the refactor table.)
+
+Here is an example for the above unlock property.
+
+```Lua
+local refactorTable = {
+
+	--Table for the inventory item 'unlock'
+	{
+		--The name of the inventory item 
+		name="unlock",
+		--The name to save/load the item in the inventory data file
+		refactoredName="lastUserTxRefreshTimer",
+		
+		--The properties table explains how to save the value associated with this inventory item.
+		
+		properties = {			
+			--Do not change!  This line must always be present.
+			name="value",
+			--The name to use in the save file
+			refactoredName="ms",
+			
+			--The function used to hide the property's true value
+			refactorFunction=function(value) 
+				if (value==true) then return math.random(1,1000) else return math.random(1001, 2000) end
+			end,
+			
+			--The function retrieve's the property's true value
+			defactorFunction=function(value)
+				if (value>=1) and (value<=1000) then return true else return false end
+			end
+		}
+	
+}
+
+```
+
+The above refactor table specifies that the property 'unlock' should be saved as 'lastUserTxRefreshTimer' in the save file.  The value associated with it in the save file will be stored as "ms".
+
+The purpose of the refactorFunction is to convert the boolean value ('true') into something less obvious to the casual user.  The function returns a random value from 1-1000 when 'true' is passed; if 'false' is passed, it returns a random value from 1001-2000.  Because the function returns a range of values for true and false, it is more difficult for the casual user to work out their function by comparing the data files of two rooted devices.
+
+The defactorFunction (if defactor is a word!?) is to reverse the above.  So any value passed between 1-1000 is returned as true; anything else is returned as false.
+
+(Note: the line **name="value"** must appear for each refactored item in the properties table.  Its use is reserved for future versions of IAP Badger, which may include the ability to record subscription dates or other information.)
+
+Once the refactor table has been defined, it is passed as an option to iap.init():
+
+```Lua
+local iapOptions = {
+	--The catalogue for this app (defined previously)
+	catalogue=catalogue,
+	--Filename to save the inventory under
+	filename="inventory.txt",
+	--Salt
+	salt = "someSalt" . system.getInfo("deviceID"),
+	--Refactor table
+	refactorTable = refactorTable
+} 
+
+--Initialise IAP badger
+iap.init(iapOptions)
+
+--IAP badger will now handle all the refactoring / defactoring automatically...
+
+```
+
+#####Refactoring more complex values
+
+Refactoring boolean values is simple enough, but how about a more complex value like an integer that represents how many coins have been purchased?
+
+In the inventory file, the original JSON might look like this:
+
+```JSON
+"coins":{"value":250}
+```
+
+Let's convert it into something less obvious, like this:
+
+```JSON
+"reload_zHash":{"frame":-17750}
+```
+
+Here, the item 'coins' has been renamed to the relatively obscure 'reload_zHash', 'value converted to 'frame' and the quantity disguised by multiplying it by -71.
+
+The refactor table required would like this:
+
+```Lua
+local refactorTable = {
+
+	--Table for the inventory item 'coins'
+	{
+		--The name of the inventory item 
+		name="coins",
+		--The name to save/load the item in the inventory data file
+		refactoredName="reload_zHash",
+		
+		--The properties table explains how to save the value associated with this inventory item.
+		
+		properties = {			
+			--Do not change!  This line must always be present.
+			name="value",
+			--The name to use in the save file
+			refactoredName="frame",
+			
+			--The function used to hide the property's true value
+			refactorFunction=function(value) 
+				return value*-71
+			end,
+			
+			--The function retrieve's the property's true value
+			defactorFunction=function(value)
+				return value/-71
+			end
+		}
+	
+}
+
+```
+
+This is obviously a simple example of how the number of coins could be disguised.  A more realistic example would involve several steps of arithmetic in the refactor function, and the reverse/opposite steps in the defactor function.
+
+Again, IAP Badger will automatically carry out the refactoring of the item and value on each save and load.  The calling code only has to query to real names and quantities for each item.
+
+####Fake inventory file items
+
+If all that appears in the inventory item is one line indicating the number of coins the user has purchased, even with obfuscation, the purpose of the value can become obvious.  IAP Badger also provides functions to include random, fake inventory items that are added to the file, and whose values are randomised with each save.
+
+Again, this helps disguise the true nature of each value and quantity.  These fake inventory items are described in the main catalogue, and can be of the type "random-integer", "random-decimal" and "random-hex".  Here is an example of a catalogue with one real 'unlock' item, and three fake items listed along with it:
+
+```Lua
+local catalogue = {
+
+	inventoryItems = {
+		--A standard, non-consumable unlock item as describe previously
+		unlock = { productType="non-consumable" },
+		
+		--Some fake products to save along with it
+		pixelGammaAdjust = {
+			productType="random-integer",
+			randomLow=1,
+			randomHigh=50,
+		},
+		timeGammaAdjust = {
+			productType="random-decimal",
+			randomLow=1,
+			randomHigh=10,
+		}
+		fakeHash = {
+			productType="random-hex",
+			randomLow=10000,
+			randomHigh=20000
+		}
+	},
+	
+	products = {...}
+}
+
+
+```
+
+In the above examples, pixelGammaAdjust is a random integer between 1 and 50, whose value is changed every time the inventory file is saved.  timeGammaAdjust is a random decimal number between 1 and 10, and fakeHash is a random hexadecimal value between 10000 and 20000 (specified here as decimals).
+
+Randomised items in the inventory can be included in the refactor table if you so choose: however, however, any functions you specify to refactor and defactor the values associated with them will be ignored.
+
+####Other useful functions
+
+ - printInventory(): prints a JSON encoded inventory to the console output.
+ - emptyInventory(disposeAll): empties the inventory, holding onto any non-consumable items.  If **disposeAll** is set to **true**, everything is removed from the inventory.
+ - emptyInventoryOfNonConsumableItems(): removes any non-consumable items from the inventory.
+ - inventoryItemCount(): returns the number of different item types in the inventory.
+ - isInventoryEmpty(): returns **true** if the inventory is empty.
+ - isStoreAvailable(): returns **true** if the store is available on the device.
+ - setDebugMode(mode, store): forces debug mode to **true/false**; store=name of store to simulate.
+
