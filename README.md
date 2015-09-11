@@ -151,7 +151,6 @@ local catalogue = {
 
 		}
 	},
-	},
 
 	--Information about how to handle the inventory item
 	inventoryItems = {
@@ -840,7 +839,7 @@ In the above examples, pixelGammaAdjust is a random integer between 1 and 50, wh
 
 Randomised items in the inventory can be included in the refactor table if you so choose: however, however, any functions you specify to refactor and defactor the values associated with them will be ignored.
 
-####Other useful functions
+###Other useful functions
 
  - printInventory(): prints a JSON encoded inventory to the console output.
  - emptyInventory(disposeAll): empties the inventory, holding onto any non-consumable items.  If **disposeAll** is set to **true**, everything is removed from the inventory.
