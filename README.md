@@ -189,7 +189,8 @@ The following code will handle the purchase of our remove banner item:
 
 --The callback function
 --IAP will call purchaseListener with the name of the product
-local function purchaseListener(product)
+--Transaction is a table containing the original transaction information table passed by Corona
+local function purchaseListener(product, transaction)
 
 	--Check the product name...
 	--(not really necessary with a one-product catalogue...)
@@ -319,6 +320,7 @@ iap.init(iapOptions)
 You can now debug your in app purchases on the simulator.  When the iap.purchase or iap.restore functions are called, you will receive an alert box asking you how you would the app store to respond (eg. successful purchase, cancelled by user, failed transaction).  Your callback functions will receive exactly the same information they will receive in the live environment, so you can test and step through code to make sure it works correctly.
 
 The debug mode can also be set to work on a real device.  If IAP Badger detects it is being run on a device, you will receive a warning when the library is initialised.  This is to make sure you don't accidentally send this version of the code to the app store.
+
 
 ### How to use: consumable items
 
@@ -848,4 +850,17 @@ Randomised items in the inventory can be included in the refactor table if you s
  - isInventoryEmpty(): returns **true** if the inventory is empty.
  - isStoreAvailable(): returns **true** if the store is available on the device.
  - setDebugMode(mode, store): forces debug mode to **true/false**; store=name of store to simulate.
+
+###Full list of options for iap.init() function
+
+**catalogue**: a table containing the product catalogue information
+**filename**: the filename to use to save the user's inventory
+**refactorTable**: a table that describes how IAP badger should refactor (rename) items and values
+**salt**: the salt to use to hash the user's inventory, to test whether its contents have been altered
+**failedListener**: a user defined function listener for when a purchase has failed (this can be a 'noisy' function)
+**cancelledListener**: a user defined function listener for when a purchase has been cancelled by the user (this can be a 'noisy' function)
+**debugMode**: indicating that IAP should be put in debug mode, even if the app is installed on a device.  When debugMode is being used on a device, a warning message is presented when the iap.init() is called.
+**debugStore**: a string to indicate which store IAP Badger should pretend to be (ie. apple, google, amazon)
+**doNotLoadInventory**: set true to start with an empty inventory (useful for debugging)
+**badHashResponse**: indicates what should happen when a bad hash is discovered on the inventory file.  Can be set to: "errorMessage", which gives the user an error message; "emptyInventory" to empty the inventory and display no warning message at all; "error" to print an error message to the console and empty the inventory; a user defined function, that will be called when a bad hash is detected.
 
