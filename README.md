@@ -843,13 +843,13 @@ Randomised items in the inventory can be included in the refactor table if you s
 
 ###Other useful functions
 
- - printInventory(): prints a JSON encoded inventory to the console output.
- - emptyInventory(disposeAll): empties the inventory, holding onto any non-consumable items.  If **disposeAll** is set to **true**, everything is removed from the inventory.
- - emptyInventoryOfNonConsumableItems(): removes any non-consumable items from the inventory.
- - inventoryItemCount(): returns the number of different item types in the inventory.
- - isInventoryEmpty(): returns **true** if the inventory is empty.
- - isStoreAvailable(): returns **true** if the store is available on the device.
- - setDebugMode(mode, store): forces debug mode to **true/false**; store=name of store to simulate.
+ - **printInventory():** prints a JSON encoded inventory to the console output.
+ - **emptyInventory(disposeAll)**: empties the inventory, holding onto any non-consumable items.  If *disposeAll* is set to *true*, everything is removed from the inventory.
+ - **emptyInventoryOfNonConsumableItems()**: removes any non-consumable items from the inventory.
+ - **inventoryItemCount()**: returns the number of different item types in the inventory.
+ - **isInventoryEmpty()**: returns **true** if the inventory is empty.
+ - **isStoreAvailable()**: returns **true** if the store is available on the device.
+ - **setDebugMode(mode, store)**: forces debug mode to **true/false**; store=name of store to simulate.
 
 ###Full list of options for iap.init() function
 
