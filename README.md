@@ -843,10 +843,6 @@ Randomised items in the inventory can be included in the refactor table if you s
 
 ###Other useful functions
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> origin/master
  - **printInventory():** prints a JSON encoded inventory to the console output.
  - **emptyInventory(disposeAll)**: empties the inventory, holding onto any non-consumable items.  If *disposeAll* is set to *true*, everything is removed from the inventory.
  - **emptyInventoryOfNonConsumableItems()**: removes any non-consumable items from the inventory.
@@ -854,29 +850,17 @@ Randomised items in the inventory can be included in the refactor table if you s
  - **isInventoryEmpty()**: returns **true** if the inventory is empty.
  - **isStoreAvailable()**: returns **true** if the store is available on the device.
  - **setDebugMode(mode, store)**: forces debug mode to **true/false**; store=name of store to simulate.
-<<<<<<< HEAD
-=======
- - printInventory(): prints a JSON encoded inventory to the console output.
- - emptyInventory(disposeAll): empties the inventory, holding onto any non-consumable items.  If **disposeAll** is set to **true**, everything is removed from the inventory.
- - emptyInventoryOfNonConsumableItems(): removes any non-consumable items from the inventory.
- - inventoryItemCount(): returns the number of different item types in the inventory.
- - isInventoryEmpty(): returns **true** if the inventory is empty.
- - isStoreAvailable(): returns **true** if the store is available on the device.
- - setDebugMode(mode, store): forces debug mode to **true/false**; store=name of store to simulate.
->>>>>>> origin/master
-=======
->>>>>>> origin/master
 
 ###Full list of options for iap.init() function
 
  - **catalogue**: a table containing the product catalogue information
- -  **filename**: the filename to use to save the user's inventory
- -  **refactorTable**: a table that describes how IAP badger should refactor (rename) items and values
- -  **salt**: the salt to use to hash the user's inventory, to test whether its contents have been altered
- -  **failedListener**: a user defined function listener for when a purchase has failed (this can be a 'noisy' function)
- -  **cancelledListener**: a user defined function listener for when a purchase has been cancelled by the user (this can be a 'noisy' function)
+ - **filename**: the filename to use to save the user's inventory
+ - **refactorTable**: a table that describes how IAP badger should refactor (rename) items and values
+ - **salt**: the salt to use to hash the user's inventory, to test whether its contents have been altered
+ - **failedListener**: a user defined function listener for when a purchase has failed (this can be a 'noisy' function)
+ - **cancelledListener**: a user defined function listener for when a purchase has been cancelled by the user (this can be a 'noisy' function)
  - **debugMode**: indicating that IAP should be put in debug mode, even if the app is installed on a device.  When debugMode is being used on a device, a warning message is presented when the iap.init() is called.
- -  **debugStore**: a string to indicate which store IAP Badger should pretend to be (ie. apple, google, amazon)
- -  **doNotLoadInventory**: set true to start with an empty inventory (useful for debugging)
- -  **badHashResponse**: indicates what should happen when a bad hash is discovered on the inventory file.  Can be set to: "errorMessage", which gives the user an error message; "emptyInventory" to empty the inventory and display no warning message at all; "error" to print an error message to the console and empty the inventory; a user defined function, that will be called when a bad hash is detected.
+ - **debugStore**: a string to indicate which store IAP Badger should pretend to be (ie. apple, google, amazon)
+ - **doNotLoadInventory**: set true to start with an empty inventory (useful for debugging)
+ - **badHashResponse**: indicates what should happen when a bad hash is discovered on the inventory file.  Can be set to: "errorMessage", which gives the user an error message; "emptyInventory" to empty the inventory and display no warning message at all; "error" to print an error message to the console and empty the inventory; a user defined function, that will be called when a bad hash is detected.
 
