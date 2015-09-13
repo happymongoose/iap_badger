@@ -788,7 +788,7 @@ public.emptyInventory=emptyInventory
 --Empties the inventory, keeping any consumable items
 local function emptyInventoryOfNonConsumableItems()
     
-    --Loop through and dispose of everything except non-consumables
+    --Loop through and dispose of all non-consumables
     for key, value in pairs(inventory) do
         if (catalogue.inventoryItems[key].productType=="non-consumable") then
             inventory[key]=nil
@@ -1508,7 +1508,7 @@ fakePurchase=function(productList)
             function()
                 --Ask user what App Store response they would like to fake
                 native.showAlert("Debug", "Purchase initiated for item: " .. value .. ".  What response would you like to give?",
-                    { "Successful", "Cancelled", "Failed", "Refunded" }, 
+                    { "Successful", "Cancelled", "Failed" }, 
                     function(event)
                         if (event.action=="clicked") then
                             --Create a fake event table
@@ -1533,9 +1533,6 @@ fakePurchase=function(productList)
                                 fakeEvent.transaction.state="failed"
                                 fakeEvent.transaction.errorType="Fake error"
                                 fakeEvent.transaction.errorString="A debug error message describing nothing."
-                            elseif (i==4) then 
-                                --Failed transactions
-                                fakeEvent.transaction.state="refunded"
                             end  --end if i
                             --Fake callback
                             print("Purchasing " .. value)
