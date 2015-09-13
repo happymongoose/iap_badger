@@ -34,7 +34,7 @@ Although Corona SDK offers an IAP API that is quite similar across the app store
 
 #### Example 1: remove advertisements from an app
 
-In this simple example, we will look at a program that has a single product: an item that indicates the user has paid to remove advertisements from an app.
+In this simple example, we will look at a program that has a single product: an item that indicates the user has paid to remove advertisements from an app.  (For fully implemented code, see main.lua in the "example 1" directory).
 
 #####Including the library
 To use the library, start with the following code:
@@ -326,9 +326,9 @@ The debug mode can also be set to work on a real device.  If IAP Badger detects 
 
 ####Example 2: Purchasing coins (as in game currency)
 
-The example code given above shows how to handle non-consumable items in the player inventory (ie. the user has purchased them, or they haven't.)  Non-consumable items don't really have a quantity as such - they are present or absent.
+The example code given above shows how to handle non-consumable items in the player inventory (ie. the user has purchased them, or they haven't.) Non-consumable items don't really have a quantity as such - they are present or absent.
 
-The following section looks at how to implement consumable items, such as packs of coins that can be spent on in game items.  Once the user has spent all of their coins, they have run out.  Consumable items cannot be restored from the App Store; if the user wants another pack of coins to use in the game, they will need to make another purchase.
+The following section looks at how to implement consumable items, such as packs of coins that can be spent on in game items.  Once the user has spent all of their coins, they have run out.  Consumable items cannot be restored from the App Store; if the user wants another pack of coins to use in the game, they will need to make another purchase.  For fully implemented code, look at main.lua in the "example 2" directory.
 
 The code for handling consumable items is very similar to non-consumable items.  Here's how to set up a consumable item in the product catalogue.
 
@@ -854,13 +854,12 @@ Randomised items in the inventory can be included in the refactor table if you s
 ###Full list of options for iap.init() function
 
  - **catalogue**: a table containing the product catalogue information
- - **filename**: the filename to use to save the user's inventory
- - **refactorTable**: a table that describes how IAP badger should refactor (rename) items and values
- - **salt**: the salt to use to hash the user's inventory, to test whether its contents have been altered
- - **failedListener**: a user defined function listener for when a purchase has failed (this can be a 'noisy' function)
- - **cancelledListener**: a user defined function listener for when a purchase has been cancelled by the user (this can be a 'noisy' function)
+ -  **filename**: the filename to use to save the user's inventory
+ -  **refactorTable**: a table that describes how IAP badger should refactor (rename) items and values
+ -  **salt**: the salt to use to hash the user's inventory, to test whether its contents have been altered
+ -  **failedListener**: a user defined function listener for when a purchase has failed (this can be a 'noisy' function)
+ -  **cancelledListener**: a user defined function listener for when a purchase has been cancelled by the user (this can be a 'noisy' function)
  - **debugMode**: indicating that IAP should be put in debug mode, even if the app is installed on a device.  When debugMode is being used on a device, a warning message is presented when the iap.init() is called.
- - **debugStore**: a string to indicate which store IAP Badger should pretend to be (ie. apple, google, amazon)
- - **doNotLoadInventory**: set true to start with an empty inventory (useful for debugging)
- - **badHashResponse**: indicates what should happen when a bad hash is discovered on the inventory file.  Can be set to: "errorMessage", which gives the user an error message; "emptyInventory" to empty the inventory and display no warning message at all; "error" to print an error message to the console and empty the inventory; a user defined function, that will be called when a bad hash is detected.
-
+ -  **debugStore**: a string to indicate which store IAP Badger should pretend to be (ie. apple, google, amazon)
+ -  **doNotLoadInventory**: set true to start with an empty inventory (useful for debugging)
+ -  **badHashResponse**: indicates what should happen when a bad hash is discovered on the inventory file.  Can be set to: "errorMessage", which gives the user an error message; "emptyInventory" to empty the inventory and display no warning message at all; "error" to print an error message to the console and empty the inventory; a user defined function, that will be called when a bad hash is detected.
