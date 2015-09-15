@@ -317,7 +317,7 @@ local iapOptions = {
 iap.init(iapOptions)
 ```
 
-You can now debug your in app purchases on the simulator.  When the iap.purchase or iap.restore functions are called, you will receive an alert box asking you how you would the app store to respond (eg. successful purchase, cancelled by user, failed transaction).  Your callback functions will receive exactly the same information they will receive in the live environment, so you can test and step through code to make sure it works correctly.
+You can now debug your in app purchases on the simulator.  When the iap.purchase or iap.restore functions are called, you will receive an alert box asking you how you would the app store to respond (eg. successful purchase, cancelled by user, failed transaction).  Your callback functions will receive exactly the same information they will receive in the live environment, so you can test and step through code to make sure it works correctly.  If you choose to restore products in debug mode, then IAP Badger will attempt to restore every non-consumable product in the catalogue.
 
 The debug mode can also be set to work on a real device.  If IAP Badger detects it is being run on a device, you will receive a warning when the library is initialised.  This is to make sure you don't accidentally send this version of the code to the app store.
 
@@ -562,8 +562,8 @@ local lpCatalogue = iap.getLoadProductsCatalogue()
 
 --Get the localized price for 50 coins and 100 coins.
 --Use the identifier specified in your product catalogue.
-local priceFor50Coins = loadProductsCatalogue.buy50coins.localizedPrice
-local priceFor100Coins = loadProductsCatalogue.buy100coins.localizedPrice
+local priceFor50Coins = lpCatalogue.buy50coins.localizedPrice
+local priceFor100Coins = lpCatalogue.buy100coins.localizedPrice
 
 ```
 
