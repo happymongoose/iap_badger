@@ -395,6 +395,16 @@ local loadProductsCatalogue=nil
     local function getLoadProductsCatalogue() return loadProductsCatalogue end
     public.getLoadProductsCatalogue = getLoadProductsCatalogue
 
+--Returns number of items in table
+local function tableCount(src)
+	local count = 0
+	if( not src ) then return count end
+	for k,v in pairs(src) do 
+		count = count + 1
+	end
+	return count
+end
+
 -- ***********************************************************************************************************
 
 --Load/Save functions, based on Rob Miracle's simple table load-save functions.
@@ -409,9 +419,9 @@ local ValidLocations = {
    [system.TemporaryDirectory] = true
 }
 
-function table.isEmpty (self)
+function tableIsEmpty(self)
     if (self==nil) then return true end
-    for _, _ in pairs(self) do
+    for key,value in pairs(self) do
         return false
     end
     return true
@@ -430,7 +440,7 @@ function saveTable(t, filename, location)
         local contents = json.encode(t)
         --If a salt was specified, add a hash to the start of the data.
         --Only include a salt if a non-empty table was provided
-        if (salt~=nil) and (table.isEmpty(t)==false) then
+        if (salt~=nil) and (tableIsEmpty(t)==false) then
             --Create hash
             local hash = crypto.digest(crypto.md5, salt .. contents)
             --Append to contents
@@ -1296,7 +1306,7 @@ local function purchase(productList, listener)
     
     if (targetStore=="amazon") then
         --Parameter check (user can only pass a string, rather than a table of strings, as Amazon only supports purchases one item at a time)
-        if (table.count(productList)>1) then
+        if (tableCount(productList)>1) then
             error("iap_badger:purchase - attempted to pass more than one product to purchase on Amazon store (Amazon only supports purchase of one item at a time)")
         end
         --Convert the product from a catalogue name to a store name
@@ -1319,7 +1329,7 @@ local function purchase(productList, listener)
     
     if (targetStore=="google") then
         --Parameter check (user can only pass a string, rather than a table of strings, as Google only supports purchases one item at a time)
-        if (table.count(productList)>1) then
+        if (tableCount(productList)>1) then
             error("iap_badger:purchase - attempted to pass more than one product to purchase on Google Play (IAP v3 only supports one product purchase at a time)")
         end
         --Convert the product from a catalogue name to a store name
