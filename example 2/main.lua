@@ -84,7 +84,8 @@ local iapOptions = {
     cancelledListener=failedListener,
     --Once the product has been purchased, it will remain in the inventory.  Uncomment the following line
     --to test the purchase functions again in future.
-    --doNotLoadInventory=true
+    --doNotLoadInventory=true,
+    debugMode=true,
 }
 
 --Initialise IAP badger
@@ -102,6 +103,10 @@ local function purchaseListener(product)
     
     --Save the inventory change
     iap.saveInventory()
+    
+    --Tell user their purchase was successful
+    native.showAlert("Info", "Your purchase was successful", {"Okay"})
+    
 end
 
 --Purchase function
@@ -177,6 +182,8 @@ local coinsHeld = iap.getInventoryValue("coins")
 --If no coins are held in the inventory, nil will be returned - this equates to no coins
 if (not coinsHeld) then coinsHeld=0 end
 
-coinText = display.newText(coinsHeld .. " coins", 20, 20, native.systemFont, 18)
+coinText = display.newText(coinsHeld .. " coins", 160, 20, native.systemFont, 18)
 coinText:setFillColor(1,1,0)
+
+
 

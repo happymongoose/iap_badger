@@ -80,7 +80,9 @@ local iapOptions = {
     cancelledListener=failedListener,
     --Once the product has been purchased, it will remain in the inventory.  Uncomment the following line
     --to test the purchase functions again in future.  It's also useful for testing restore purchases.
-    --doNotLoadInventory=true
+    --doNotLoadInventory=true,
+    debugMode=true,
+    
 }
 
 --Initialise IAP badger
@@ -116,6 +118,8 @@ local function purchaseListener(product )
     removeAds()
     --Save the inventory change
     iap.saveInventory()
+    --Give the user a message saying the purchase was successful
+    native.showAlert("Info", "Your purchase was successful", {"Okay"})
 end
 
 --Purchase function
@@ -141,7 +145,7 @@ buyUnlock=function()
     spinner:insert(spinnerRect)
     
     --Tell IAP to initiate a purchase
-    iap.purchase("removeAds", purchaseListener, failedListener)
+    iap.purchase("removeAds", purchaseListener)
     
 end
 

@@ -1,6 +1,10 @@
 
-local public={}
+--Create library
+--local Library = require "CoronaLibrary"
 
+-- Create library
+--local public = Library:new{ name='iap_badger', publisherId='uk.co.happymongoose' }
+local public={}
 
 --Store library
 local store=require("store")
@@ -408,7 +412,7 @@ end
 -- ***********************************************************************************************************
 
 --Load/Save functions, based on Rob Miracle's simple table load-save functions.
---Inventory adds a layer of encryption to the load/save functions.
+--Inventory adds a layer of protection to the load/save functions.
 
 local json = require("json")
 local DefaultLocation = system.DocumentsDirectory
@@ -419,9 +423,9 @@ local ValidLocations = {
    [system.TemporaryDirectory] = true
 }
 
-function tableIsEmpty(self)
+function tableIsEmpty (self)
     if (self==nil) then return true end
-    for key,value in pairs(self) do
+    for _, _ in pairs(self) do
         return false
     end
     return true
@@ -476,7 +480,12 @@ function loadTable(filename, location)
             local hash = contents:sub(1, delimeter-1)
             contents = contents:sub(delimeter)
             --Calculate a hash for the contents
-            local calculatedHash = crypto.digest(crypto.md5, salt .. contents)
+            local calculatedHash = nil
+            if (salt) then
+                calculatedHash = crypto.digest(crypto.md5, salt .. contents)
+            else
+                calculatedHash = crypto.digest(crypto.md5, contents)
+            end
             --If the two do not match, reject the file
             if (hash~=calculatedHash) then
                 if (badHashResponse=="emptyInventory") then 
@@ -699,13 +708,16 @@ local function randomiseInventory()
     for key, value in pairs(inventory) do
         --Find the product in the product catalogue
         local product = catalogue.inventoryItems[key]
-        --If the product type is random-integer...
-        if (product.productType=="random-integer") then
-            value.value=math.random(product.randomLow, product.randomHigh)
-        elseif (product.productType=="random-decimal") then
-            value.value=math.random(product.randomLow, product.randomHigh)+(1/(math.random(1,1000)))
-        elseif (product.productType=="random-hex") then
-            value.value=string.format("0x%x", math.random(product.randomLow, product.randomHigh))
+        --If the product is specified in the inventory...
+        if (product) then
+            --If the product type is random-integer...
+            if (product.productType=="random-integer") then
+                value.value=math.random(product.randomLow, product.randomHigh)
+            elseif (product.productType=="random-decimal") then
+                value.value=math.random(product.randomLow, product.randomHigh)+(1/(math.random(1,1000)))
+            elseif (product.productType=="random-hex") then
+                value.value=string.format("0x%x", math.random(product.randomLow, product.randomHigh))
+            end
         end
     end
 end
@@ -1269,9 +1281,9 @@ local function generateAmazonJSON()
         end
         
         amazonCatalogue[sku] = {
-            price = "10.00",
-            title = "Amazon store SKU: " .. sku,
-            description = "Description of item " .. sku .. ".",
+            price = value.simulatorPrice or "0.99",
+            title = value.simulatorTitle or "Amazon store SKU: " .. sku,
+            description = value.simulatorDescription or "Description of item " .. sku .. ".",
             itemType = productType
         }
         
@@ -1432,7 +1444,6 @@ local function init(options)
         --Assume the store isn't available
         storeAvailable = false
         --Get the current device's target store
---        targetStore = store.target        
         targetStore = system.getInfo("targetAppStore")
         
         --If running on the simulator, set the target store manually

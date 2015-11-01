@@ -30,12 +30,22 @@ settings = {
 		}
 	},
 	
-	--[[
-	-- Android permissions
+        plugins =
+        {
+            --Google in app billing v3
+            ["plugin.google.iap.v3"] =
+            {
+                -- required
+                publisherId = "com.coronalabs",
+                supportedPlatforms = { android = true },
+            },  
+        
+        },
+    
+    -- Android permissions
 
 	androidPermissions = {
-  		"android.permission.INTERNET",
+  		"android.permission.BILLING",
   	},
 
-	]]--
 }
