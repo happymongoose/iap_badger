@@ -1,9 +1,5 @@
 
 --Create library
---local Library = require "CoronaLibrary"
-
--- Create library
---local public = Library:new{ name='iap_badger', publisherId='uk.co.happymongoose' }
 local public={}
 
 --Store library
