@@ -33,7 +33,7 @@ It's supplied under an MIT license, so fork it and do what you like with it.
 
 ##Documentation
 
-The code included in this repository is a standard lua library, which can be included in your project and forked/amended as required.  The library will (hopefully) soon be available as a standard Corona SDK plug-in.
+The code included in this repository is a standard lua library, which can be included in your project and forked/amended as required.  The library is also available as a standard Corona SDK plug-in.
 
 To provide a single point of access for information about IAP Badger that is up to date, documentation and sample tutorials for IAP Badger will now be maintained [on our website](http://happymongoosegames.co.uk/iapbadger.php).
 
