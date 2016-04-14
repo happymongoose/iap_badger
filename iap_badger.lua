@@ -9,6 +9,7 @@ public.store=store
 --[[
 
 IAP badger - the trolley of the future.
+Version 2
 
 Currently supports: iOS App Store / Google Play / Amazon / simulator
 
@@ -38,13 +39,23 @@ Inventory / security features:
 Thought for the day: with all the security measures imaginable, anyone who wants to jailbreak/root their device so they can then
     disassemble/hack your app is going to do so.  No amount of data / code obfuscation will stop them.  Accept it and move on.
     
+    
+Changelog
+
+Version 2:
+* support added for Amazon IAP v2
+* removed generateAmazonJSON() function as it is no longer required (JSON testing file can now be downloaded from Amazon's website)
+* fixed null productID passed on fake cancelled/failed restore events
+* changes to loadInventory and saveInventory to add ability to load and save directly from a string instead of a device file (to allow for cloud saving etc.)
+* added getLoadProductsFinished() - returns true if loadProducts has received information back from the store, false if loadProducts still waiting, nil if loadProducts never called
+
 This code is released under an MIT license, so you're free to do what you want with it -
 though it would be great that if you forked or improved it, those improvements were
 given back to the community :)
 
     The MIT License (MIT)
 
-    Copyright (c) 2015 The Happy Mongoose Company Ltd.
+    Copyright (c) 2015/16 The Happy Mongoose Company Ltd.
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -395,6 +406,10 @@ local loadProductsCatalogue=nil
     local function getLoadProductsCatalogue() return loadProductsCatalogue end
     public.getLoadProductsCatalogue = getLoadProductsCatalogue
 
+local loadProductsFinished=nil
+    local function getLoadProductsFinished() return loadProductsFinished end
+    public.getLoadProductsFinished = getLoadProductsFinished
+    
 --Returns number of items in table
 local function tableCount(src)
 	local count = 0
@@ -419,7 +434,7 @@ local ValidLocations = {
    [system.TemporaryDirectory] = true
 }
 
-function tableIsEmpty (self)
+local function tableIsEmpty (self)
     if (self==nil) then return true end
     for _, _ in pairs(self) do
         return false
@@ -427,7 +442,23 @@ function tableIsEmpty (self)
     return true
 end
 
-function saveTable(t, filename, location)
+local function saveToString(t)
+    
+    local contents = json.encode(t)
+    --If a salt was specified, add a hash to the start of the data.
+    --Only include a salt if a non-empty table was provided
+    if (salt~=nil) and (tableIsEmpty(t)==false) then
+        --Create hash
+        local hash = crypto.digest(crypto.md5, salt .. contents)
+        --Append to contents
+        contents = hash .. contents
+    end
+        
+    return contents
+    
+end
+
+local function saveTable(t, filename, location)
     if location and (not ValidLocations[location]) then
      error("Attempted to save a table to an invalid location", 2)
     elseif not location then
@@ -437,15 +468,7 @@ function saveTable(t, filename, location)
     local path = system.pathForFile( filename, location)
     local file = io.open(path, "w")
     if file then
-        local contents = json.encode(t)
-        --If a salt was specified, add a hash to the start of the data.
-        --Only include a salt if a non-empty table was provided
-        if (salt~=nil) and (tableIsEmpty(t)==false) then
-            --Create hash
-            local hash = crypto.digest(crypto.md5, salt .. contents)
-            --Append to contents
-            contents = hash .. contents
-        end
+        local contents = saveToString(t)
         file:write( contents )
         io.close( file )
         return true
@@ -454,7 +477,45 @@ function saveTable(t, filename, location)
     end
 end
  
-function loadTable(filename, location)
+local function loadInventoryFromString(contents)
+    
+    --If the contents start with a hash...
+    if (contents:sub(1,1)~="{") then
+        --Find the start of the contents...
+        local delimeter = contents:find("{")  
+        --If no contents were found, return an empty table whatever the hash
+        if (delimeter==nil) then return nil end
+        local hash = contents:sub(1, delimeter-1)
+        contents = contents:sub(delimeter)
+        --Calculate a hash for the contents
+        local calculatedHash = nil
+        if (salt) then
+            calculatedHash = crypto.digest(crypto.md5, salt .. contents)
+        else
+            calculatedHash = crypto.digest(crypto.md5, contents)
+        end
+        --If the two do not match, reject the file
+        if (hash~=calculatedHash) then
+            if (badHashResponse=="emptyInventory") then 
+                return nil
+            elseif (badHashResponse=="errorMessage") then
+                native.showAlert("Error", "File error.", {"Ok"})
+                return nil
+            elseif (badHashResponse=="error" or badHashResponse==nil) then 
+                error("File error occurred")
+                return nil
+            else 
+                badHashResponse() 
+                return nil
+            end
+        end
+    end
+    
+    return json.decode(contents);
+        
+end
+
+local function loadTable(filename, location)
     if location and (not ValidLocations[location]) then
      error("Attempted to load a table from an invalid location", 2)
     elseif not location then
@@ -467,45 +528,14 @@ function loadTable(filename, location)
     if file then
         -- read all contents of file into a string
         local contents = file:read( "*a" )
-        --If the contents start with a hash...
-        if (contents:sub(1,1)~="{") then
-            --Find the start of the contents...
-            local delimeter = contents:find("{")  
-            --If no contents were found, return an empty table whatever the hash
-            if (delimeter==nil) then return nil end
-            local hash = contents:sub(1, delimeter-1)
-            contents = contents:sub(delimeter)
-            --Calculate a hash for the contents
-            local calculatedHash = nil
-            if (salt) then
-                calculatedHash = crypto.digest(crypto.md5, salt .. contents)
-            else
-                calculatedHash = crypto.digest(crypto.md5, contents)
-            end
-            --If the two do not match, reject the file
-            if (hash~=calculatedHash) then
-                if (badHashResponse=="emptyInventory") then 
-                    return nil
-                elseif (badHashResponse=="errorMessage") then
-                    native.showAlert("Error", "File error.", {"Ok"})
-                    return nil
-                elseif (badHashResponse=="error" or badHashResponse==nil) then 
-                    error("File error occurred")
-                    return nil
-                else 
-                    badHashResponse() 
-                    return nil
-                end
-            end
-        end
-        myTable = json.decode(contents);
+        myTable = loadInventoryFromString(contents)
         io.close( file )
         return myTable
     end
     return nil
 end
 
-function changeDefaultSaveLocation(location)
+local function changeDefaultSaveLocation(location)
 	if location and (not location) then
 		error("Attempted to change the default location to an invalid location", 2)
 	elseif not location then
@@ -719,20 +749,36 @@ local function randomiseInventory()
 end
 
 --Saves the inventory contents
-local function saveInventory()
+--asString - if nil, the inventory will be saved on the user's device; if set to true,
+--will return a string representing the inventory that can be used for saving the inventory elsewhere
+--(ie. on the cloud etc.)
+local function saveInventory(asString)
     --Create random values for random products
     randomiseInventory()
     --Refactor the inventory
     local refactoredInventory = createRefactoredInventory()
     --Save contents
-    saveTable(refactoredInventory, filename)
+    if (asString==nil) then
+        saveTable(refactoredInventory, filename)        
+    else if (asString==true) then
+        return saveToString(refactoredInventory)
+        end
+    end
 end
 public.saveInventory = saveInventory
 
 --Load in a previously saved inventory
-local function loadInventory()
+--If inventoryString=nil, then the inventory will be loaded from the save file on the user's device.
+--If a string is passed, the library will attempt to decode a text string containing the inventory - use
+--this for loading from the cloud etc.
+local function loadInventory(inventoryString)
     --Attempt to load inventory
-    local refactoredInventory=loadTable(filename)
+    local refactoredInventory=nil
+    if (inventoryString==nil) then    
+        refactoredInventory = loadTable(filename)
+    else
+        refactoredInventory = loadInventoryFromString(inventoryString)
+    end
     --If inventory does not exists, create one
     if (refactoredInventory==nil) then
         inventory={}
@@ -1033,9 +1079,9 @@ local function storeTransactionCallback(event)
         transaction.errorString=event.transaction.errorString
         transaction.transactionIdentifier = event.transaction.identifier
        
-    --If on the Google store, and the last action from the user was to make a restore, and this
+    --If on the Google or Amazon store, and the last action from the user was to make a restore, and this
     --appears to be a purchase, then convert the event into a restore
-    if (targetStore=="google") and (actionType=="restore") and (transaction.state=="purchased") then
+    if ( ((targetStore=="amazon") or targetStore=="google")) and (actionType=="restore") and (transaction.state=="purchased") then
         transaction.state="restored"
     end
     
@@ -1253,43 +1299,6 @@ local function restore(emptyFlag, postRestoreListener, timeoutFunction, cancelTi
 end
 public.restore=restore
 
---[[ 
-Automatically generate an Amazon JSON string based on the catalogue - useful for debugging.
-Print the string and save it to /mnt/sdcard/amazon.sdktester.json on a live Kindle device for
-IAP testing.
---]]
-
---This requires the store to be set to Amazon - if running on simulator,
---set debug mode to true, and the debug store to Amazon.  It requires a piece
---of JSON text that can be printed or saved.
-local function generateAmazonJSON()
-    
-    local amazonCatalogue={}
-    
-    --Iterate over the product catalogue
-    for key, value in pairs(catalogue.products) do
-        --Get SKU
-        local sku = getAppStoreID(key)
-        --Convert product type to Amazon-speak
-        local productType=nil
-        if (value.productType=="consumable") then productType="CONSUMABLE"
-        elseif (value.productType=="non-consumable") then productType="ENTITLED"
-        end
-        
-        amazonCatalogue[sku] = {
-            price = value.simulatorPrice or "0.99",
-            title = value.simulatorTitle or "Amazon store SKU: " .. sku,
-            description = value.simulatorDescription or "Description of item " .. sku .. ".",
-            itemType = productType
-        }
-        
-    end
-        
-    --Convert file to JSON string
-    return json.encode(amazonCatalogue)    
-end
-
-public.generateAmazonJSON = generateAmazonJSON
     
 --Purchase function
 --  productList: string or table of strings of items to purchase.  On Amazon, only a string is valid (Amazon only supports purchase of one item at a time)
@@ -1460,7 +1469,7 @@ local function init(options)
             --Switch to the amazon plug in
             store=require("plugin.amazon.iap")
             store.init(storeTransactionCallback)      
-            storeAvailable=true
+            if (store.isActive) then storeAvailable=true end
         end
         
     --If running on the simulator, always run in debug mode
@@ -1595,7 +1604,7 @@ fakeRestoreListener=function(event)
         if (index==3) then
             local fakeEvent={
                 transaction={
-                    productIdentifier=productID,
+                    productIdentifier="debugProductIdentifier",
                     state="cancelled",
                     errorType=nil,
                     errorString=nil
@@ -1609,7 +1618,7 @@ fakeRestoreListener=function(event)
         if (index==2) then
             local fakeEvent={
                 transaction={
-                    productIdentifier=productID,
+                    productIdentifier="debugProductIdentifier",
                     state="failed",
                     errorType="Simulated error",
                     errorString="Fake error generated by debug."
@@ -1791,6 +1800,7 @@ local function loadProductsCallback(event)
     
     --If a user specified callback function was specified, call it
     if (loadProductsUserCallback~=nil) then loadProductsUserCallback(event) end
+    loadProductsFinished=true
     
 end
 
@@ -1846,10 +1856,10 @@ local function loadProducts(callback)
     loadProductsUserCallback=callback
     
     --Load products
+    loadProductsFinished=false
     store.loadProducts(listOfProducts, loadProductsCallback)
     
 end
 public.loadProducts = loadProducts
 
 return public
-
