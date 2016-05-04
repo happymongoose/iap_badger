@@ -9,7 +9,7 @@ public.store=store
 --[[
 
 IAP badger - the trolley of the future.
-Version 3
+Version 4
 
 Currently supports: iOS App Store / Google Play / Amazon / simulator
 
@@ -41,6 +41,9 @@ Thought for the day: with all the security measures imaginable, anyone who wants
     
     
 Changelog
+
+Version 4:
+* removed reference to stores.availableStores.apple 
 
 Version 3:
 * fixed store loading (defaulting to Apple) on non-iOS devices
@@ -1461,7 +1464,7 @@ local function init(options)
         end        
         
          --Initialise if the store is available
-        if targetStore=="apple" and store.availableStores.apple then
+        if targetStore=="apple" then
             store=require("store")
             store.init("apple", storeTransactionCallback)   
             storeAvailable = true
