@@ -9,7 +9,7 @@ public.store=store
 --[[
 
 IAP badger - the trolley of the future.
-Version 4
+Version 5
 
 Currently supports: iOS App Store / Google Play / Amazon / simulator
 
@@ -41,6 +41,9 @@ Thought for the day: with all the security measures imaginable, anyone who wants
     
     
 Changelog
+
+Version 5:
+* fix to getLoadProductsFinished when running in debug mode
 
 Version 4:
 * removed reference to stores.availableStores.apple 
@@ -1768,7 +1771,12 @@ local function fakeLoadProducts(callback)
     eventData.products=loadProductsCatalogue
     
     --Call the users callback function (after a brief delay to make it more realistic)
-    timer.performWithDelay(2500, function() callback(eventData) end, 1)
+    if (callback) then
+        timer.performWithDelay(2500, function() callback(eventData) end, 1)
+    end
+    
+    --GetLoadProducts flag
+    loadProductsFinished=true
     
 end
 
