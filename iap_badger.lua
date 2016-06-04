@@ -16,8 +16,8 @@ Changelog
 ---------
 
 Version 6:
-* getLoadProducts - fixed user listener not being called correctly (again)
-* getLoadProducts - for convenience, the user listener is now called with (raw product data, loadProductsCatalogue) on device; 
+* loadProducts - fixed user listener not being called correctly (again)
+* loadProducts - for convenience, the user listener is now called with (raw product data, loadProductsCatalogue) on device; 
 *                   ({}, loadProductsCatalogue) on simulator.
 
 Version 5:
