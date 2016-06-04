@@ -9,9 +9,33 @@ public.store=store
 --[[
 
 IAP badger - the trolley of the future.
-Version 5
 
 Currently supports: iOS App Store / Google Play / Amazon / simulator
+
+Changelog
+---------
+
+Version 6:
+* getLoadProducts - fixed user listener not being called correctly (again)
+* getLoadProducts - for convenience, the user listener is now called with (raw product data, loadProductsCatalogue) on device; 
+*                   ({}, loadProductsCatalogue) on simulator.
+
+Version 5:
+* fix to getLoadProductsFinished when running in debug mode
+
+Version 4:
+* removed reference to stores.availableStores.apple 
+
+Version 3:
+* fixed store loading (defaulting to Apple) on non-iOS devices
+
+Version 2:
+* support added for Amazon IAP v2
+* removed generateAmazonJSON() function as it is no longer required (JSON testing file can now be downloaded from Amazon's website)
+* fixed null productID passed on fake cancelled/failed restore events
+* changes to loadInventory and saveInventory to add ability to load and save directly from a string instead of a device file (to allow for cloud saving etc.)
+* added getLoadProductsFinished() - returns true if loadProducts has received information back from the store, false if loadProducts still waiting, nil if loadProducts never called
+
 
 General features:
 * a unified approach to calling store and IAP whether you're on the App Store, Google Play, or wherever
@@ -40,23 +64,6 @@ Thought for the day: with all the security measures imaginable, anyone who wants
     disassemble/hack your app is going to do so.  No amount of data / code obfuscation will stop them.  Accept it and move on.
     
     
-Changelog
-
-Version 5:
-* fix to getLoadProductsFinished when running in debug mode
-
-Version 4:
-* removed reference to stores.availableStores.apple 
-
-Version 3:
-* fixed store loading (defaulting to Apple) on non-iOS devices
-
-Version 2:
-* support added for Amazon IAP v2
-* removed generateAmazonJSON() function as it is no longer required (JSON testing file can now be downloaded from Amazon's website)
-* fixed null productID passed on fake cancelled/failed restore events
-* changes to loadInventory and saveInventory to add ability to load and save directly from a string instead of a device file (to allow for cloud saving etc.)
-* added getLoadProductsFinished() - returns true if loadProducts has received information back from the store, false if loadProducts still waiting, nil if loadProducts never called
 
 This code is released under an MIT license, so you're free to do what you want with it -
 though it would be great that if you forked or improved it, those improvements were
@@ -1761,6 +1768,7 @@ local function fakeLoadProducts(callback)
         
         --Add data to callback table
         loadProductsCatalogue[key]=data
+        
     end
     
     --If no user callback then quit now
@@ -1772,7 +1780,7 @@ local function fakeLoadProducts(callback)
     
     --Call the users callback function (after a brief delay to make it more realistic)
     if (callback) then
-        timer.performWithDelay(2500, function() callback(eventData) end, 1)
+        timer.performWithDelay(2500, function() callback({}, loadProductsCatalogue) end, 1)
     end
     
     --GetLoadProducts flag
@@ -1810,11 +1818,10 @@ local function loadProductsCallback(event)
         end
         --Store copy
         loadProductsCatalogue[catalogueKey]=eventData
---        loadProductsCatalogue[eventData.productIdentifier]=eventData
     end
     
     --If a user specified callback function was specified, call it
-    if (loadProductsUserCallback~=nil) then loadProductsUserCallback(event) end
+    if (loadProductsUserCallback~=nil) then loadProductsUserCallback(event, loadProductsCatalogue) end
     loadProductsFinished=true
     
 end
@@ -1843,9 +1850,12 @@ end
 --
 --
 --callback (optional): the function to call after loadProducts is complete.  The original loadProducts callback event data from 
---          Corona will be passed.
+--          Corona will be passed as paramater 1, the loadProductsCatalogue table as parameter 2.
 
 local function loadProducts(callback)
+    
+    --Save the user callback function
+    loadProductsUserCallback=callback
     
     --If running on the simulator, fake the product array
     if (targetStore=="simulator") or (debugMode) then
@@ -1867,14 +1877,12 @@ local function loadProducts(callback)
         listOfProducts[#listOfProducts+1]=value.productNames[targetStore]
     end
     
-    --Save the user callback function
-    loadProductsUserCallback=callback
-    
     --Load products
     loadProductsFinished=false
     store.loadProducts(listOfProducts, loadProductsCallback)
     
 end
 public.loadProducts = loadProducts
+
 
 return public
