@@ -104,9 +104,9 @@ Products can have different names on different app stores.
 
 Inventory items:
     --productType (required) legal types are: consumable, non-consumable, random-integer, random-decimal, random-hex.
-            consumable items exist in a boolean state (they have been purchased, or they haven't).  If the item in in the inventory,
+            non-consumable items exist in a boolean state (they have been purchased, or they haven't).  If the item in in the inventory,
                 it returns true to queries about it's value; if it's not in the inventory, it returns nil.
-            non-consumable items exists as quantities.  If the item ever reaches a quantity of '0' it is completely removed from the inventory -
+            consumable items exists as quantities.  If the item ever reaches a quantity of '0' it is completely removed from the inventory -
                 this means queries about its quantity will return 'nil' rather than 0.
             random-integer, random-decimal and random-hex will just throw out random values every time the 
                 table is saved.  Their use is solely to disguise the function of other variables in the inventory - add as many/few
@@ -116,9 +116,9 @@ Inventory items:
 
 Product catalogue options:
     --productType (required) legal types are: consumable and non-consumable
-            consumable items exist in a boolean state (they have been purchased, or they haven't).  If the item in in the inventory,
+            non-consumable items exist in a boolean state (they have been purchased, or they haven't).  If the item in in the inventory,
                 it returns true to queries about it's value; if it's not in the inventory, it returns nil.
-            non-consumable items exists as quantities.  If the item ever reaches a quantity of '0' it is completely removed from the inventory -
+            consumable items exists as quantities.  If the item ever reaches a quantity of '0' it is completely removed from the inventory -
                 this means queries about its quantity will return 'nil' rather than 0.
     --onPurchase (required for all app stores): function to call when the item is purchased or restored (IAP badger treats them as the same).
             However, as the basic Corona transaction event is passed, if you need to distinguish between the two, look at transaction.state. 
