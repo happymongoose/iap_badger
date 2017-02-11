@@ -15,6 +15,9 @@ Currently supports: iOS App Store / Google Play / Amazon / simulator
 Changelog
 ---------
 
+Verison 7:
+* decoupled inventory handling from IAP handling
+
 Version 6:
 * loadProducts - fixed user listener not being called correctly (again)
 * loadProducts - for convenience, the user listener is now called with (raw product data, loadProductsCatalogue) on device; 
@@ -769,6 +772,8 @@ end
 --will return a string representing the inventory that can be used for saving the inventory elsewhere
 --(ie. on the cloud etc.)
 local function saveInventory(asString)
+    --Ignore if no filename given
+    if (filename==nil) then return end
     --Create random values for random products
     randomiseInventory()
     --Refactor the inventory
@@ -788,6 +793,8 @@ public.saveInventory = saveInventory
 --If a string is passed, the library will attempt to decode a text string containing the inventory - use
 --this for loading from the cloud etc.
 local function loadInventory(inventoryString)
+    --If no filename set, ignore
+    if (filename==nil) then return end
     --Attempt to load inventory
     local refactoredInventory=nil
     if (inventoryString==nil) then    
@@ -1434,13 +1441,12 @@ local function init(options)
     if (options.catalogue==nil) then
         error("iap_badger:init - no catalogue provided")
     end
-    if (options.filename==nil) then
-        error("iap_bader:init - no filename for inventory file provided")
-    end
     --Get a copy of the products table
     catalogue=options.catalogue
     --Filename
-    filename=options.filename
+    if (options.filename) then
+        filename=options.filename
+    end
     --Refactor table (optional)
     refactorTable=options.refactorTable
     --Load in the salt (optional)
