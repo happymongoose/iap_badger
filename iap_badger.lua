@@ -1,6 +1,5 @@
-
---Create library
-local public={}
+local Library = require "CoronaLibrary"
+local public = Library:new{ name='iap_badger', publisherId='uk.co.happymongoose' }
 
 --Store library
 local store={}
@@ -15,7 +14,12 @@ Currently supports: iOS App Store / Google Play / Amazon / simulator
 Changelog
 ---------
 
-Verison 7:
+Version 8:
+* updated for Google IAP update (store.init now asynchronous)
+* added getVersion(), consumeAllProducts() and printLoadProductsCatalogue() functions
+* improved handling of loadProducts in debug mode or on the simulator, so it better simulates the delay experienced on a real device
+
+Version 7:
 * decoupled inventory handling from IAP handling
 
 Version 6:
@@ -383,6 +387,9 @@ local storeTransactionCallback
 local fakeRestore
 local fakeRestoreListener
 local fakePurchase
+local loadProducts
+local restore
+local purchase
 
 --Restore purchases timer
 local restorePurchasesTimer=nil
@@ -413,6 +420,12 @@ local postRestoreCallbackListener=nil
 local fakeRestoreTimeoutFunction=nil
 local fakeRestoreTimeoutTime=nil
 
+--For Google IAP v3 only...
+--Indicates whether the store has been initialised (for handling asynchronous initialisation on Google IAP
+local storeInitialized = nil
+    --Once the store is initialised, run a restore
+    local initQueue = nil
+    
 --Flag to indicate if this is the first item following a restore call
 local firstRestoredItem=nil
 --Action type - either "purchase" or "restore".  Used for faking Google purchase or restore
@@ -437,6 +450,41 @@ local function tableCount(src)
 		count = count + 1
 	end
 	return count
+end
+
+--Debug table print function - this just prints the given table in a more human readable form
+local function debugPrint ( t ) 
+        local print_r_cache={}
+        local function sub_print_r(t,indent)
+                if (print_r_cache[tostring(t)]) then
+                        print(indent.."*"..tostring(t))
+                else
+                        print_r_cache[tostring(t)]=true
+                        if (type(t)=="table") then
+                                for pos,val in pairs(t) do
+                                        if (type(val)=="table") then
+                                                print(indent.."["..pos.."] => "..tostring(t).." {")
+                                                sub_print_r(val,indent..string.rep(" ",string.len(pos)+8))
+                                                print(indent..string.rep(" ",string.len(pos)+6).."}")
+                                        elseif (type(val)=="string") then
+                                                print(indent.."["..pos..'] => "'..val..'"')
+                                        else
+                                                print(indent.."["..pos.."] => "..tostring(val))
+                                        end
+                                end
+                        else
+                                print(indent..tostring(t))
+                        end
+                end
+        end
+        if (type(t)=="table") then
+                print(tostring(t).." {")
+                sub_print_r(t,"  ")
+                print("}")
+        else
+                sub_print_r(t,"  ")
+        end
+        print()
 end
 
 -- ***********************************************************************************************************
@@ -1020,6 +1068,38 @@ local function setDebugMode(mode, store)
 end
 public.setDebugMode=setDebugMode
 
+--Google only
+--This will consume all products in the product table, regardless of whether they are consumable or not
+--This function does not nothing on all other platforms
+local function consumeAllPurchases()
+    
+    --This only applies to Google on a device - ignore for all other configurations
+    if targetStore~="google" then return end
+    
+    --If running on Google IAP, the store may not have been initialised at this point.  If it isn't ready, queue up the restore for when it is and quit now
+    if  storeInitialized==false then
+        --Tell store transaction listener to run a restore when the initialisation is finished
+        item = {
+            name="consumeAllPurchases",
+            params={ }
+        }
+        initQueue[#initQueue+1]=item
+        --Quit now
+        return true
+    end
+    
+    --Iterate through the product catalogue
+    for key, product in pairs(catalogue.products) do
+        --If this product has a google product ID associated with it...
+        if (product.productNames.google) then
+            --...consume it
+            store.consumePurchase(product.productNames.google)
+        end
+    end
+    
+end
+public.consumeAllPurchases = consumeAllPurchases
+
 -- ************************************************************************************************************
 
 --Returns the product name and product data from the catalogue, for the product with the given
@@ -1084,8 +1164,47 @@ local function checkPreviousTransactionsForProduct(productIdentifier, transactio
     
 end
 
+local function executeInitQueue()
+    
+    --If the queue contains something...
+    if initQueue~=nil then
+        for key, item in pairs(initQueue) do        
+            --Load products
+            if item['name']=="loadProducts" then
+                loadProducts(item['params']['callback'])
+            end
+            --Restore
+            if item['name']=="restore" then
+                restore(item['params']['emptyFlag'], item['params']['postRestoreListener'], item['params']['timeoutFunction'], item['params']['cancelTime'])
+            end
+            --ConsumeAllPurchases
+            if item['name']=="consumeAllPurchases" then consumeAllPurchases() end
+            --Purchase
+            if item['name']=="purchase" then purchase(item['params']['productList'], item['params']['listener']) end
+        end
+    end
+
+    --Delete queue
+    initQueue = {}
+        
+end
+
+
 --Transaction callback for all purchase / restore functions
 local function storeTransactionCallback(event)
+
+    --If this is an init callback (Google IAP)...
+    if (event.name == "init") then
+        --Record store is initialised
+        storeInitialized=true
+        --Work through items in the queue waiting to be executed
+        timer.performWithDelay(50, executeInitQueue)
+        --Quit now - event has been processed
+        return true
+    end
+    
+    --Not interested in consumption events
+    if (event.name=="consumed") then return end
 
     --Get a copy of the transaction
     local transaction={}
@@ -1269,11 +1388,26 @@ public.getProductIdentifierFromName=getProductIdentifierFromName
 --   timeoutFunction (optional) = function to call after a given amount of time if this function hangs (store.restore does not return a transaction when 
 --        there are no transactions to restore.
 --   cancelTime (optional): how long to wait in ms before calling timeoutFunction (default 10s)
-local function restore(emptyFlag, postRestoreListener, timeoutFunction, cancelTime)
+restore=function(emptyFlag, postRestoreListener, timeoutFunction, cancelTime)
     
     if (emptyFlag~=true) and (emptyFlag~=false) then
         error("iap_badger.restore: restore called without setting emptyFlag to true or false (should non-consumables in inventory be removed before contacting store?")
         return
+    end
+    
+    --If running on Google IAP, the store may not have been initialised at this point.  If it isn't ready, queue up the restore for when it is and quit now
+    if ( (targetStore=="google") or ((targetStore=="simulator") and (debugStore=="google")) ) and (storeInitialized==false) then
+        --Tell store transaction listener to run a restore when the initialisation is finished
+        item = {
+            name="restore",
+            params={ emptyFlag = emptyFlag, postRestoreListener=nil, timeoutFunction=nil, cancelTime=nil }
+        }
+        if (postRestoreListener) then item['params']['postRestoreListener'] = postRestoreListener end
+        if (timeoutFunction) then item['params']['timeoutFunction'] = timeoutFunction end
+        if (cancelTime) then item['params']['cancelTime'] = cancelTime end
+        initQueue[#initQueue+1]=item
+        --Quit now
+        return true
     end
     
     --Set action type
@@ -1327,7 +1461,20 @@ public.restore=restore
 --  productList: string or table of strings of items to purchase.  On Amazon, only a string is valid (Amazon only supports purchase of one item at a time)
 --  listener (optional): function to call after purchase is successful/unsuccessful.  The function will be called with the transaction portion
 --      of the store event.  ie. in the form: function(event) result=event.state (purchased, restored, failed, cancelled, refunded) end
-local function purchase(productList, listener)
+purchase=function(productList, listener)
+    
+    --If running on Google IAP, the store may not have been initialised at this point.  If it isn't ready, queue up the purchase for when it is and quit now
+    if ( (targetStore=="google") or ((targetStore=="simulator") and (debugStore=="google")) ) and (storeInitialized==false) then
+        --Tell store transaction listener to run a restore when the initialisation is finished
+        item = {
+            name="purchase",
+            params={ productList=productList, listener=nil }
+        }
+        if (listener) then item['params']['listener'] = listener end
+        initQueue[#initQueue+1]=item
+        --Quit now
+        return true
+    end
     
     --Save post purchase listener specified by user
     postStoreTransactionCallbackListener=listener
@@ -1477,6 +1624,7 @@ local function init(options)
         if (onSimulator==true) then 
             targetStore="simulator" 
             storeAvailable=true
+            storeInitialized=true
         end        
         
          --Initialise if the store is available
@@ -1484,15 +1632,20 @@ local function init(options)
             store=require("store")
             store.init("apple", storeTransactionCallback)   
             storeAvailable = true
+            storeInitialized = true
         elseif targetStore=="google" then
             store=require("plugin.google.iap.v3")
             store.init("google", storeTransactionCallback)
             storeAvailable = true
+            --Init in Google IAP is asynchronous - record that the call has yet to complete
+            storeInitialized = false
+            initQueue = {}
         elseif targetStore=="amazon" then
             --Switch to the amazon plug in
             store=require("plugin.amazon.iap")
             store.init(storeTransactionCallback)      
             if (store.isActive) then storeAvailable=true end
+            storeInitialized = true
         end
         
     --If running on the simulator, always run in debug mode
@@ -1503,6 +1656,13 @@ local function init(options)
         --If a debug store to test was passed, use that
         if (options.debugStore~=nil) then debugStore=options.debugStore else debugStore="apple" end
         storeName = storeNames[targetStore]
+        --If debug store is google, create a delay before completing initialisation to simulate asynchronous store.init on real device
+        if (debugStore=="google") then
+            storeInitialized = false
+            initQueue = {}
+            --Simulate device delay between starting init request and Google completing
+            timer.performWithDelay(750, function() storeTransactionCallback({name="init"}) end)
+        end
     end
     
     --If debug mode has been set to true, always put in debug mode (even if on a device)
@@ -1737,6 +1897,39 @@ end
 
 local loadProductsUserCallback=nil
 
+--Prints out the contents of the loadProducts catalgoue to the console
+
+
+local function printLoadProductsCatalogue()
+        
+    print "printLoadProductsCatalogue output:"
+    print "----------------------------------"
+    
+    if loadProductsCatalogue==nil then
+        print "nil"
+        return
+    end
+    --Provide a useful feedback message if getLoadProductsCatalogue() has never been called.
+    if loadProductsFinished==nil then 
+        print "getLoadProductsCatalogue() not yet called - loadProductsCatalogue is empty" 
+        return
+    end
+    
+    if loadProductsFinished=="error" then
+        print "Error occurred during loadProducts"
+        return
+    end
+    
+    if loadProductsFinished==false then
+        print "Still waiting for product catalogue from relevant app store."
+        return
+    end
+    
+    
+    debugPrint(loadProductsCatalogue)
+    
+end
+public.printLoadProductsCatalogue=printLoadProductsCatalogue
 
 --Create a fake product event with information passed in the catalogue.  This function will be called from loadProducts when run in the
 --simulator.  The user's callback function will be called after a brief delay.
@@ -1784,14 +1977,12 @@ local function fakeLoadProducts(callback)
     local eventData={}
     eventData.products=loadProductsCatalogue
     
-    --Call the users callback function (after a brief delay to make it more realistic)
-    if (callback) then
-        timer.performWithDelay(2500, function() callback({}, loadProductsCatalogue) end, 1)
-    end
-    
-    --GetLoadProducts flag
+    --Set the load products flag to true
     loadProductsFinished=true
     
+    --If a callback function was specified, call it
+    if (callback) then callback({}, loadProductsCatalogue) end 
+        
 end
 
 --Callback function
@@ -1799,7 +1990,10 @@ end
 local function loadProductsCallback(event)
     
     --If an error was reported (so the product catalogue couldn't be loaded), leave now
-    if (event.isError) then return end
+    if (event.isError) then 
+        loadProductsFinished = "error"
+        return 
+    end
     
     --Create an empty catalogue
     loadProductsCatalogue={}
@@ -1826,9 +2020,11 @@ local function loadProductsCallback(event)
         loadProductsCatalogue[catalogueKey]=eventData
     end
     
+    --Indicate load products is complete
+    loadProductsFinished=true
+    
     --If a user specified callback function was specified, call it
     if (loadProductsUserCallback~=nil) then loadProductsUserCallback(event, loadProductsCatalogue) end
-    loadProductsFinished=true
     
 end
 
@@ -1838,7 +2034,7 @@ end
 --If running on the simulator, the user's callback function will be passed a fake array containing fake data based on the product 
 --catalogue specification.
 --
---Assuming the function is successful, a table containing valid products will be placed in loadProductsCatalgoue, which can be
+--Assuming the function is successful, a table containing valid products will be placed in loadProductsCatalogue, which can be
 --access by the getLoadProductsCatalogue function - so strictly speaking it is not always necessary to pass a callback and simply
 --interrogate the loadProductsCatalogue instead.  The table will contain false if loadProducts failed, or nil if loadProducts has never
 --been called.
@@ -1858,14 +2054,30 @@ end
 --callback (optional): the function to call after loadProducts is complete.  The original loadProducts callback event data from 
 --          Corona will be passed as paramater 1, the loadProductsCatalogue table as parameter 2.
 
-local function loadProducts(callback)
+loadProducts=function(callback)
+    
+    --On Google IAP, check that init has completed
+    if ( (targetStore=="google") or ((targetStore=="simulator") and (debugStore=="google")) ) and (storeInitialized==false) then
+        --Queue up a load products
+        item = {
+            name="loadProducts",
+            params={callback=nil}
+        }
+        if (callback) then item['params']['callback']=callback end
+        initQueue[#initQueue+1]=item
+        return
+    end
     
     --Save the user callback function
     loadProductsUserCallback=callback
+        
+    --Reset load products flag
+    loadProductsFinished=false
     
     --If running on the simulator, fake the product array
     if (targetStore=="simulator") or (debugMode) then
-        fakeLoadProducts(callback)
+        --Run the fakeLoadProducts function on a timer to simulator delay contacting app store
+        timer.performWithDelay(2500, function() fakeLoadProducts(callback) end)
         return true
     end
     
@@ -1884,11 +2096,16 @@ local function loadProducts(callback)
     end
     
     --Load products
-    loadProductsFinished=false
     store.loadProducts(listOfProducts, loadProductsCallback)
     
 end
 public.loadProducts = loadProducts
 
+
+--Returns version number for library
+local function getVersion() 
+    return 8;
+end
+public.getVersion=getVersion
 
 return public
