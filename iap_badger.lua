@@ -14,6 +14,9 @@ Currently supports: iOS App Store / Google Play / Amazon / simulator
 Changelog
 ---------
 
+Version 8.02
+* fixed minor error with usingOldGoogle
+
 Version 8:
 * updated for Google IAP update (store.init now asynchronous) - disable this by setting usingOldGoogle to true in iap.init()
 * added getVersion(), consumeAllProducts() and printLoadProductsCatalogue() functions
@@ -1642,6 +1645,8 @@ local function init(options)
             if (options.usingOldGoogle==nil) then
                 storeInitialized = false
                 initQueue = {}
+            else
+                storeInitialized=true
             end
         elseif targetStore=="amazon" then
             --Switch to the amazon plug in
