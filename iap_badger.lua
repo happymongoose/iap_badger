@@ -15,7 +15,7 @@ Changelog
 ---------
 
 Version 8:
-* updated for Google IAP update (store.init now asynchronous)
+* updated for Google IAP update (store.init now asynchronous) - disable this by setting usingOldGoogle to true in iap.init()
 * added getVersion(), consumeAllProducts() and printLoadProductsCatalogue() functions
 * improved handling of loadProducts in debug mode or on the simulator, so it better simulates the delay experienced on a real device
 
@@ -1578,6 +1578,7 @@ public.purchase=purchase
 --      * debugMode (optional) - set to true to start in debug mode
 --      * debugStore (optional) - identify a store to use in debug mode (eg. "apple", "google").  Only valid on simulator
 --      * doNotLoadInventory (optional) - set to true to start with an empty inventory (useful for debugging)
+--      * usingOldGoogle (optonal) - set to true if you're using an old build of Corona (earlier than 2017.3105) and don't need to worry about asynchronous changes to store.init
 
 local function init(options)
         
@@ -1638,8 +1639,10 @@ local function init(options)
             store.init("google", storeTransactionCallback)
             storeAvailable = true
             --Init in Google IAP is asynchronous - record that the call has yet to complete
-            storeInitialized = false
-            initQueue = {}
+            if (options.usingOldGoogle==nil) then
+                storeInitialized = false
+                initQueue = {}
+            end
         elseif targetStore=="amazon" then
             --Switch to the amazon plug in
             store=require("plugin.amazon.iap")
