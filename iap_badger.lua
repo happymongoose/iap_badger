@@ -14,6 +14,10 @@ Currently supports: iOS App Store / Google Play / Amazon / simulator
 Changelog
 ---------
 
+Version 9
+* added verboseDebugOutput for some functions
+* added automatic build number check to see whether IAP Badger needs to run in synchronous mode for new Google IAP v3 interface
+
 Version 8.02
 * fixed minor error with usingOldGoogle
 
@@ -409,6 +413,8 @@ local targetStore=nil
 local debugMode=false
 --Store to debug as
 local debugStore="apple"
+--Verbose debug output to console?
+local verboseDebugOutput=nil
 
 --Standard response to bad hash
 local badHashResponse="errorMessage"
@@ -1196,19 +1202,36 @@ end
 --Transaction callback for all purchase / restore functions
 local function storeTransactionCallback(event)
 
+    if (verboseDebugOutput) then 
+        print "IAP Badger: storeTransactionCallback"
+        print "event contains raw data:"
+        debugPrint(event)
+    end
+
     --If this is an init callback (Google IAP)...
     if (event.name == "init") then
+        if (verboseDebugOutput) then print "Google Play initialisation event" end
         --Record store is initialised
         storeInitialized=true
         --Work through items in the queue waiting to be executed
+        if (verboseDebugOutput) then print "Store initialised, executing timed commands on a 50ms timer..." end
         timer.performWithDelay(50, executeInitQueue)
         --Quit now - event has been processed
+        if (verboseDebugOutput) then print "IAP Badger: leaving storeTransactionCallback" end
         return true
     end
     
     --Not interested in consumption events
-    if (event.name=="consumed") then return end
+    if (event.name=="consumed") then 
+        if (verboseDebugOutput) then 
+            print "Consumption event - ignoring" 
+            print "IAP Badger: leaving storeTransactionCallback"
+        end
+        return 
+    end
 
+    if (verboseDebugOutput) then print "Store transaction event" end
+        
     --Get a copy of the transaction
     local transaction={}
         transaction.state=event.transaction.state
@@ -1228,10 +1251,14 @@ local function storeTransactionCallback(event)
     --appears to be a purchase, then convert the event into a restore
     if ( ((targetStore=="amazon") or targetStore=="google")) and (actionType=="restore") and (transaction.state=="purchased") then
         transaction.state="restored"
+        if (verboseDebugOutput) then print "Converting Android purchase event into a restore event" end
     end
     
     --If on the Amazon store, the revoked status is equivalent to refunded
-    if (targetStore=="amazon") and (transaction.state=="revoked") then transaction.state="refunded" end
+    if (targetStore=="amazon") and (transaction.state=="revoked") then 
+        if (verboseDebugOutput) then print "Converting Amazon revoked event into refunded event" end
+        transaction.state="refunded" 
+    end
     
     --Search the product catalogue for the relevant target store - if running in the simulator,
     --default to iOS.
@@ -1240,7 +1267,13 @@ local function storeTransactionCallback(event)
     
     --Check product name if not a failed or cancelled event
     --Find the product by using its identifier in the product catalogue
+    if (verboseDebugOutput) then 
+        print ("Converting store product ID " .. transaction.productIdentifier .. " to catalogue product name.")
+    end
     local productName, product = getProductFromIdentifier(transaction.productIdentifier)
+    if (verboseDebugOutput) then 
+        print (transaction.productIdentifier .. "==>" .. productName)
+    end
     
     ---------------------------------
     -- Handle refunds (Android-based machines only)
@@ -1249,20 +1282,24 @@ local function storeTransactionCallback(event)
     --Refunds on Amazon
     --  An amazon refund (revoke) can follow a restore callback - in which case, the refund should be ignored.
     if (targetStore=="amazon") and (transaction.state=="refunded") then
+            if (verboseDebugOutput) then print "Handling Amazon refund" end
         --Check through the previously restored transactions to see if this product is listed
         if (checkPreviousTransactionsForProduct(transaction.productIdentifier, transaction.transactionIdentifier)==true) then
             --Just ignore this revoke - the user has previously revoked, repurchased and then restored the item
             if (debugMode~=true) then store.finishTransaction(event.transaction) end
+            if (verboseDebugOutput) then print "IAP Badger: leaving storeTransactionCallback" end
             return true
         end
     end
     --All refunds should be silent
     if (transaction.state=="refunded") then
+        if (verboseDebugOutput) then print "Handling refunded event" end
         --User callback
         if (product.onRefund~=nil) then product.onRefund(productName, transaction) end
         --Tell the store we're finished
         if (debugMode~=true) then store.finishTransaction(event.transaction) end
         --Return
+        if (verboseDebugOutput) then print "IAP Badger: leaving storeTransactionCallback" end
         return true
     end
     
@@ -1281,25 +1318,33 @@ local function storeTransactionCallback(event)
     
     --Failed transactions
     if (transaction.state=="failed") then
+        if (verboseDebugOutput) then print "Transaction FAILED" end
         if (transactionFailedListener~=nil) then 
+            if (verboseDebugOutput) then print "Calling failed listener" end
             transactionFailedListener(productName, event.transaction)
+            if (verboseDebugOutput) then print "Returned from failed lsitener" end
         else
             native.showAlert("Error", "Transaction failed: " .. transaction.errorString, {"Ok"})
         end
         --Tell the store we are finished
         if (debugMode~=true) then store.finishTransaction(event.transaction) end
+        if (verboseDebugOutput) then print "IAP Badger: leaving storeTransactionCallback" end
         return true        
     end
 
     --User cancelled transaction
     if (transaction.state=="cancelled") then
+        if (verboseDebugOutput) then print "Transaction CANCELLED BY USER" end
         if (transactionCancelledListener~=nil) then
+            if (verboseDebugOutput) then print "Calling cancel listener" end
             transactionCancelledListener(productName, event.transaction)
+            if (verboseDebugOutput) then print "Returned from cancel listener" end
         else
             native.showAlert("Information", "Transaction cancelled by user.", {"Ok"})
         end
         --Tell the store we are finished
         if (debugMode~=true) then store.finishTransaction(event.transaction) end
+        if (verboseDebugOutput) then print "IAP Badger: leaving storeTransactionCallback" end
         return true
     end
     
@@ -1307,8 +1352,11 @@ local function storeTransactionCallback(event)
     ------------------------------
     --If the program gets this far into the function, the product was purchased, restored or refunded.
     
+    if (verboseDebugOutput) then print "Transaction PURCHASE or RESTORE" end
+    
     --If this is a restore callback, and this is the first item to be restored...
     if (firstRestoredItem==true) and (transaction.state=="restored") then
+        if (verboseDebugOutput) then print "Recording that this is the FIRST RESTORE item" end
         --Add a flag to the transaction event that tells the user
         transaction.firstRestoreCallback=true
         --Reset the flag
@@ -1325,24 +1373,39 @@ local function storeTransactionCallback(event)
     --If successfully purchasing or restoring a transaction...
     if (transaction.state=="purchased") or (transaction.state=="restored") then
         --Call the user specified purchase function
-        if (product.onPurchase~=nil) then product.onPurchase(productName, transaction) end
+        if (product.onPurchase~=nil) then 
+            if (verboseDebugOutput) then print "Calling user defined purchase listener (silent catalogue listener)" end
+            product.onPurchase(productName, transaction) 
+            if (verboseDebugOutput) then print "Returned from user defined purchase listener (silent catalogue listener)" end
+        end
         --Tell the store we're finished
         if (debugMode~=true) then store.finishTransaction(event.transaction) end
         --If the user specified a listener to call after this transaction, call it
-        if (transaction.state=="purchased") and (postStoreTransactionCallbackListener~=nil) then postStoreTransactionCallbackListener(productName, transaction) end
-        if (transaction.state=="restored") and (postRestoreCallbackListener~=nil) and (product.productType~="consumable") then postRestoreCallbackListener(productName, transaction) end
+        if (transaction.state=="purchased") and (postStoreTransactionCallbackListener~=nil) then 
+            if (verboseDebugOutput) then print "Calling user defined purchase listener (noisy)" end
+            postStoreTransactionCallbackListener(productName, transaction) 
+            if (verboseDebugOutput) then print "Returned from user defined purchase listener (noisy)" end
+        end
+        if (transaction.state=="restored") and (postRestoreCallbackListener~=nil) and (product.productType~="consumable") then 
+            if (verboseDebugOutput) then print "Calling user defined restore listener" end
+            postRestoreCallbackListener(productName, transaction) 
+            if (verboseDebugOutput) then print "Returned from user defined restore listener" end
+        end
         --If running on Amazon, and this is a restore, save the purchase info (may need to cancel a revoke later)
         if (targetStore=="amazon") and (transaction.state=="restored") then
             previouslyRestoredTransactions[#previouslyRestoredTransactions+1]=transaction
         end
         --If this is a consumable, and running on Google Play, immediate consume the item so it can be purchased again
         if (targetStore=="google") and (product.productType=="consumable") then
+            if (verboseDebugOutput) then print "Running Anroid consumePurchase event on 10ms timer" end
             --Run this on a timer - not recommended to consume purchases within the IAP listener
             timer.performWithDelay(10, function() store.consumePurchase({transaction.productIdentifier}) end)
         end
+        if (verboseDebugOutput) then print "IAP Badger: leaving storeTransactionCallback" end
         return true
     end
 
+    if (verboseDebugOutput) then print "IAP Badger: leaving storeTransactionCallback - DID NOT INDICATE SUCCESSFUL PROCESSING - SOMETHING WENT WRONG" end
     return false
 end
 
@@ -1393,6 +1456,8 @@ public.getProductIdentifierFromName=getProductIdentifierFromName
 --   cancelTime (optional): how long to wait in ms before calling timeoutFunction (default 10s)
 restore=function(emptyFlag, postRestoreListener, timeoutFunction, cancelTime)
     
+    if (verboseDebugOutput) then print "IAP Badger: restore" end
+    
     if (emptyFlag~=true) and (emptyFlag~=false) then
         error("iap_badger.restore: restore called without setting emptyFlag to true or false (should non-consumables in inventory be removed before contacting store?")
         return
@@ -1400,6 +1465,7 @@ restore=function(emptyFlag, postRestoreListener, timeoutFunction, cancelTime)
     
     --If running on Google IAP, the store may not have been initialised at this point.  If it isn't ready, queue up the restore for when it is and quit now
     if ( (targetStore=="google") or ((targetStore=="simulator") and (debugStore=="google")) ) and (storeInitialized==false) then
+        if (verboseDebugOutput) then print "Google Play not initilialised yet - queuing restore" end
         --Tell store transaction listener to run a restore when the initialisation is finished
         item = {
             name="restore",
@@ -1410,6 +1476,7 @@ restore=function(emptyFlag, postRestoreListener, timeoutFunction, cancelTime)
         if (cancelTime) then item['params']['cancelTime'] = cancelTime end
         initQueue[#initQueue+1]=item
         --Quit now
+        if (verboseDebugOutput) then print "IAP Badger: leaving restore" end
         return true
     end
     
@@ -1437,25 +1504,32 @@ restore=function(emptyFlag, postRestoreListener, timeoutFunction, cancelTime)
     
     --Initiate restore purchases with store
     if (debugMode==true) then 
+        if (verboseDebugOutput) then print "On simulator/debug mode - faking restore" end
         fakeRestoreTimeoutTime=cancelTime
         fakeRestoreTimeoutFunction=timeoutFunction
         fakeRestore() 
     else
+        if (verboseDebugOutput) then print "Requesting restore..." end
         --Start restore
         store.restore()
         --Set up a timeout if the user specified a timeoutFunction to call
         if (timeoutFunction~=nil) then 
+            if (verboseDebugOutput) then print "Timeout function specified, placing on timer..." end
             restorePurchasesTimer=timer.performWithDelay(cancelTime, function()
                 --Kill the first restored item flag and fail callback pointer
                 firstRestoredItem=nil
                 restorePurchasesTimer=nil
                 actionType=nil
                 --Call the user defined timeout function
+                if (verboseDebugOutput) then print "IAP Badger: not heard anything back from restore yet, so calling user-defined timeout function." end
                 timeoutFunction()
+                if (verboseDebugOutput) then print "IAP Badger: returned from user-defined timeout function for restore." end
             end)
         end
     end
         
+    if (verboseDebugOutput) then print "IAP Badger: leaving restore" end
+    
 end
 public.restore=restore
 
@@ -1466,8 +1540,15 @@ public.restore=restore
 --      of the store event.  ie. in the form: function(event) result=event.state (purchased, restored, failed, cancelled, refunded) end
 purchase=function(productList, listener)
     
+    if (verboseDebugOutput) then 
+        print "IAP Badger: entering purchase" 
+        print "Called with productList:"
+        debugPrint(productList)
+    end
+
     --If running on Google IAP, the store may not have been initialised at this point.  If it isn't ready, queue up the purchase for when it is and quit now
     if ( (targetStore=="google") or ((targetStore=="simulator") and (debugStore=="google")) ) and (storeInitialized==false) then
+        if (verboseDebugOutput) then print "Google Play not initialised - queuing purchase call" end
         --Tell store transaction listener to run a restore when the initialisation is finished
         item = {
             name="purchase",
@@ -1476,6 +1557,7 @@ purchase=function(productList, listener)
         if (listener) then item['params']['listener'] = listener end
         initQueue[#initQueue+1]=item
         --Quit now
+        if (verboseDebugOutput) then print "IAP Badger: leaving purchase" end
         return true
     end
     
@@ -1505,12 +1587,15 @@ purchase=function(productList, listener)
         if (debugMode==true) then 
             --Convert back into a table for fake purchases
             local renamedProductList = { renamedProduct }
+            if (verboseDebugOutput) then print "On simulator/debug mode - faking purchase" end
             fakePurchase(renamedProductList)
         else
             --Real store will want the name of the product as a string (and nothing else)
+            if (verboseDebugOutput) then print "Requesting purchase from Amazon..." end
             store.purchase(renamedProduct)
         end
         --Quit here
+        if (verboseDebugOutput) then print "IAP Badger: leaving purchase" end
         return
     end    
     
@@ -1528,12 +1613,15 @@ purchase=function(productList, listener)
         if (debugMode==true) then 
             --Convert back into a table for fake purchases
             local renamedProductList = { renamedProduct }
+            if (verboseDebugOutput) then print "On simulator/debug mode - faking purchase" end
             fakePurchase(renamedProductList)
         else
             --Real store will want the name of the product as a string (and nothing else)
+            if (verboseDebugOutput) then print "Requesting purchase from Google Play..." end
             store.purchase(renamedProduct)
         end
         --Quit here
+        if (verboseDebugOutput) then print "IAP Badger: leaving purchase" end
         return
     end    
     
@@ -1550,11 +1638,14 @@ purchase=function(productList, listener)
 
     --Make purchase
     if (debugMode==true) then 
+        if (verboseDebugOutput) then print "On simulator/debug mode - faking purchases" end
         fakePurchase(renamedProductList)
     else
+        if (verboseDebugOutput) then print "Requesting purchase from Apple..." end
         store.purchase(renamedProductList)
     end
     
+    if (verboseDebugOutput) then print "IAP Badger: leaving purchase" end
 end
 public.purchase=purchase
 
@@ -1581,7 +1672,8 @@ public.purchase=purchase
 --      * debugMode (optional) - set to true to start in debug mode
 --      * debugStore (optional) - identify a store to use in debug mode (eg. "apple", "google").  Only valid on simulator
 --      * doNotLoadInventory (optional) - set to true to start with an empty inventory (useful for debugging)
---      * usingOldGoogle (optonal) - set to true if you're using an old build of Corona (earlier than 2017.3105) and don't need to worry about asynchronous changes to store.init
+--      * usingOldGoogle (optional) - set to true if you're using an old build of Corona (earlier than 2017.3105) and don't need to worry about asynchronous changes to store.init
+--      * verboseDebugOutput (optional) - sends lots of debugging info to the console
 
 local function init(options)
         
@@ -1592,12 +1684,43 @@ local function init(options)
     if (options.catalogue==nil) then
         error("iap_badger:init - no catalogue provided")
     end
+    
+    --Verbose debug info?
+    if (options.verboseDebugOutput) then
+        verboseDebugOutput=true
+        print "--------------------------------------------------------------------"
+        print ("IAP Badger: init")
+        print ("Called with:")
+        debugPrint(options)
+        print ""
+        print "VerboseDebugOutput set to true"
+    end
+    
+    --Check usingOldGoogle flag - if this hasn't been set, and running on an older build than 2017.3106, then force IAP Badger to use old library
+    if (options.usingOldGoogle==nil) then
+        --Grab the build
+        local build = system.getInfo("build")
+        --If the build string is in the format YYYY-version...
+        if (string.match(build, "^%d*%.%d*$")~=nil) then
+            --Split the build into year and version
+            local build_year = tonumber(string.match(build, "^(%d*)%.%d*$"))
+            local build_version = tonumber(string.match(build, "^%d*%.(%d*)$"))
+            print (build_year .. "  " .. build_version)
+        
+            if (build_year<2017) then options.usingOldGoogle=true end
+            if (build_year>=2017) and (build_version<3106) then options.usingOldGoogle=true end
+            if (verboseDebugOutput) and (options.usingOldGoogle) then print "Automatically detected app needs old version of Google interface (Corona build earlier than 2017.3106)" end
+        end
+        
+    end
+    
     --Get a copy of the products table
     catalogue=options.catalogue
     --Filename
     if (options.filename) then
         filename=options.filename
     end
+    
     --Refactor table (optional)
     refactorTable=options.refactorTable
     --Load in the salt (optional)
@@ -1629,15 +1752,18 @@ local function init(options)
             targetStore="simulator" 
             storeAvailable=true
             storeInitialized=true
+            if (verboseDebugOutput) then print "Running on simulator" end
         end        
         
          --Initialise if the store is available
         if targetStore=="apple" then
+            if (verboseDebugOutput) then print "Running on iOS" end
             store=require("store")
             store.init("apple", storeTransactionCallback)   
             storeAvailable = true
             storeInitialized = true
         elseif targetStore=="google" then
+            if (verboseDebugOutput) then print "Running on Android (Google Play)" end
             store=require("plugin.google.iap.v3")
             store.init("google", storeTransactionCallback)
             storeAvailable = true
@@ -1645,10 +1771,16 @@ local function init(options)
             if (options.usingOldGoogle==nil) then
                 storeInitialized = false
                 initQueue = {}
+                if (verboseDebugOutput) then 
+                    print "Using asynchronous Google IAP integration"
+                    print "Waiting for store to initialise, queuing future store functions." 
+                end
             else
+                if (verboseDebugOutput) then print "Using synchronous Google IAP framework" end
                 storeInitialized=true
             end
         elseif targetStore=="amazon" then
+            if (verboseDebugOutput) then print "Running on Android (Amazon)" end
             --Switch to the amazon plug in
             store=require("plugin.amazon.iap")
             store.init(storeTransactionCallback)      
@@ -1687,7 +1819,8 @@ local function init(options)
     if (onSimulator==false) and debugMode==true then
         native.showAlert("Warning", "Running IAP Badger in debug mode on device", {"Ok"})
     end
-            
+           
+    if (verboseDebugOutput) then print "IAP Badger: leaving init" end
 end
 public.init = init
 
@@ -1997,9 +2130,19 @@ end
 
 local function loadProductsCallback(event)
     
+    if (verboseDebugOutput) then 
+        print "IAP Badger: loadProductsCallback" 
+        print "Raw event data:"
+        debugPrint(event)
+    end
+    
     --If an error was reported (so the product catalogue couldn't be loaded), leave now
     if (event.isError) then 
         loadProductsFinished = "error"
+        if (verboseDebugOutput) then 
+            print "Product catalogue couldn't be loaded due to error"
+            print "IAP Badger: leaving loadProductsCallback"
+        end
         return 
     end
     
@@ -2015,6 +2158,9 @@ local function loadProductsCallback(event)
         end
         --Convert the product identifier (app store specific) into a catalogue product name
         local catalogueKey=nil
+        if (verboseDebugOutput) then 
+            print ("Checking product ID " .. eventData.productIdentifier .. " exists in product catalogue passed to iap.init")
+        end
         for key, value in pairs(catalogue.products) do
             if (value.productNames[targetStore]==eventData.productIdentifier) then
                 catalogueKey = key
@@ -2025,6 +2171,12 @@ local function loadProductsCallback(event)
             print("Unable to find a catalogue product name for the product with identifier " .. eventData.productIdentifier)
         end
         --Store copy
+        if (verboseDebugOutput) then 
+            print ("Product found: " .. eventData.productIdentifier .. "=>" .. catalogueKey)
+            print "Storing product info as below"
+            debugPrint(eventData)
+        end
+
         loadProductsCatalogue[catalogueKey]=eventData
     end
     
@@ -2032,8 +2184,14 @@ local function loadProductsCallback(event)
     loadProductsFinished=true
     
     --If a user specified callback function was specified, call it
-    if (loadProductsUserCallback~=nil) then loadProductsUserCallback(event, loadProductsCatalogue) end
+    if (loadProductsUserCallback~=nil) then 
+        if (verboseDebugOutput) then print "Calling user defined listener function" end
+        loadProductsUserCallback(event, loadProductsCatalogue) 
+        if (verboseDebugOutput) then print "Returned from user defined listener function" end
+    end
     
+    if (verboseDebugOutput) then print "IAP Badger: leaving loadProductsCallback" end
+        
 end
 
 --If possible, this function will download a product table from either Google Play, the App Store or Amazon and call the 
@@ -2064,8 +2222,13 @@ end
 
 loadProducts=function(callback)
     
+    if (verboseDebugOutput) then print "IAP Badger: loadProducts" end
+
     --On Google IAP, check that init has completed
     if ( (targetStore=="google") or ((targetStore=="simulator") and (debugStore=="google")) ) and (storeInitialized==false) then
+        
+        if (verboseDebugOutput) then print "Google Play not yet initialised.  Queuing loadProducts." end
+
         --Queue up a load products
         item = {
             name="loadProducts",
@@ -2073,6 +2236,9 @@ loadProducts=function(callback)
         }
         if (callback) then item['params']['callback']=callback end
         initQueue[#initQueue+1]=item
+        
+        if (verboseDebugOutput) then print "IAP Badger: leaving loadProducts" end
+
         return
     end
     
@@ -2091,28 +2257,36 @@ loadProducts=function(callback)
     
     --Return a nil value if products cannot be loaded from the real store
     if (store.canLoadProducts~=true) then 
+        if (verboseDebugOutput) then print "store.canLoadProducts not set to true - loadProducts is not available" end
         --Record that the loadProductsCatalgue failed
         loadProductsCatalogue=false
         --Return that this function failed
+        if (verboseDebugOutput) then print "IAP Badger: leaving loadProducts" end
         return false 
     end
     
     --Generate a list of products
     local listOfProducts={}
     for key, value in pairs(catalogue.products) do
+        if (verboseDebugOutput) then 
+            print ("Preparing loadProducts for product ID " .. value.productNames[targetStore])
+        end
         listOfProducts[#listOfProducts+1]=value.productNames[targetStore]
     end
     
     --Load products
+    if (verboseDebugOutput) then print "Calling loadProducts" end
     store.loadProducts(listOfProducts, loadProductsCallback)
     
+    if (verboseDebugOutput) then print "IAP Badger: leaving loadProducts" end
+
 end
 public.loadProducts = loadProducts
 
 
 --Returns version number for library
 local function getVersion() 
-    return 8;
+    return 9;
 end
 public.getVersion=getVersion
 
