@@ -1697,7 +1697,11 @@ local function init(options)
     end
     
     --Check usingOldGoogle flag - if this hasn't been set, and running on an older build than 2017.3106, then force IAP Badger to use old library
-    if (options.usingOldGoogle==nil) then
+    --Check usingOldGoogle flag - if this hasn't been set, and running on an older build than 2017.3106, then force IAP Badger to use old library
+    local autodetectGoogle=false
+    if ((options.usingOldGoogle==nil) and (system.getInfo("targetAppStore")=="google")) then autodetectGoogle=true end
+    if ((options.usingOldGoogle==nil) and (system.getInfo("environment")=="simulator") and (options.debugStore=="google")) then autodetectGoogle=true end
+    if (autodetectGoogle) then
         --Grab the build
         local build = system.getInfo("build")
         --If the build string is in the format YYYY-version...
@@ -1705,13 +1709,12 @@ local function init(options)
             --Split the build into year and version
             local build_year = tonumber(string.match(build, "^(%d*)%.%d*$"))
             local build_version = tonumber(string.match(build, "^%d*%.(%d*)$"))
-            print (build_year .. "  " .. build_version)
-        
             if (build_year<2017) then options.usingOldGoogle=true end
             if (build_year>=2017) and (build_version<3106) then options.usingOldGoogle=true end
-            if (verboseDebugOutput) and (options.usingOldGoogle) then print "Automatically detected app needs old version of Google interface (Corona build earlier than 2017.3106)" end
-        end
-        
+            if (verboseDebugOutput) and (options.usingOldGoogle) then 
+                print "Automatically detected app needs old version of Google interface (Corona build earlier than 2017.3106)" 
+            end
+        end        
     end
     
     --Get a copy of the products table
@@ -1795,12 +1798,14 @@ local function init(options)
         debugMode=true 
         --If a debug store to test was passed, use that
         if (options.debugStore~=nil) then debugStore=options.debugStore else debugStore="apple" end
+        if (verboseDebugOutput) then print ("Simulating target store: " .. debugStore) end
         storeName = storeNames[targetStore]
         --If debug store is google, create a delay before completing initialisation to simulate asynchronous store.init on real device
         if (debugStore=="google") then
             storeInitialized = false
             initQueue = {}
             --Simulate device delay between starting init request and Google completing
+            if (verboseDebugOutput) then print ("Will simulate Google init transaction event in 750ms") end
             timer.performWithDelay(750, function() storeTransactionCallback({name="init"}) end)
         end
     end
