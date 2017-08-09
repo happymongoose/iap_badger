@@ -14,6 +14,9 @@ Currently supports: iOS App Store / Google Play / Amazon / simulator
 Changelog
 ---------
 
+Version 10
+* fixed crash bug introduced by verboseDebugOutput when testing cancelled/failed restores on the simulator
+
 Version 9
 * added verboseDebugOutput for some functions
 * added automatic build number check to see whether IAP Badger needs to run in synchronous mode for new Google IAP v3 interface
@@ -1271,7 +1274,7 @@ local function storeTransactionCallback(event)
         print ("Converting store product ID " .. transaction.productIdentifier .. " to catalogue product name.")
     end
     local productName, product = getProductFromIdentifier(transaction.productIdentifier)
-    if (verboseDebugOutput) then 
+    if (verboseDebugOutput) and (productName~=nil) then 
         print (transaction.productIdentifier .. "==>" .. productName)
     end
     
@@ -2291,7 +2294,7 @@ public.loadProducts = loadProducts
 
 --Returns version number for library
 local function getVersion() 
-    return 9;
+    return 10;
 end
 public.getVersion=getVersion
 
