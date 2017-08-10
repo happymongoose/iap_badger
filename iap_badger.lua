@@ -14,6 +14,9 @@ Currently supports: iOS App Store / Google Play / Amazon / simulator
 Changelog
 ---------
 
+Version 11
+* fixed loadProducts not working correctly on simulator when not passed a callback function
+
 Version 10
 * fixed crash bug introduced by verboseDebugOutput when testing cancelled/failed restores on the simulator
 
@@ -2084,6 +2087,8 @@ public.printLoadProductsCatalogue=printLoadProductsCatalogue
 --simulator.  The user's callback function will be called after a brief delay.
 local function fakeLoadProducts(callback)
     
+    if (verboseDebugOutput) then print "IAP Badger: entering fakeLoadProductsCallback" end
+    
     --Create a table containing faked data based on the product catalogue
     loadProductsCatalogue={}
     
@@ -2119,9 +2124,6 @@ local function fakeLoadProducts(callback)
         
     end
     
-    --If no user callback then quit now
-    if (loadProductsUserCallback==nil) then return end
-    
     --Create fake callback event data
     local eventData={}
     eventData.products=loadProductsCatalogue
@@ -2129,8 +2131,20 @@ local function fakeLoadProducts(callback)
     --Set the load products flag to true
     loadProductsFinished=true
     
-    --If a callback function was specified, call it
-    if (callback) then callback({}, loadProductsCatalogue) end 
+    --If no user callback then quit now
+    if (loadProductsUserCallback==nil) then 
+        if (verboseDebugOutput) then print "IAP Badger: leaving fakeLoadProductsCallback" end
+        return 
+    end
+        
+    --If a user specified callback function was specified, call it
+    if (loadProductsUserCallback~=nil) then 
+        if (verboseDebugOutput) then print "Calling user defined listener function" end
+        callback(event, loadProductsCatalogue) 
+        if (verboseDebugOutput) then print "Returned from user defined listener function" end
+    end
+    
+    if (verboseDebugOutput) then print "IAP Badger: leaving fakeLoadProductsCallback" end
         
 end
 
@@ -2294,7 +2308,7 @@ public.loadProducts = loadProducts
 
 --Returns version number for library
 local function getVersion() 
-    return 10;
+    return 11;
 end
 public.getVersion=getVersion
 

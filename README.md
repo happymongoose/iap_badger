@@ -1,32 +1,27 @@
 # iap_badger
-A unified approach to in-app purchases with Corona SDK
+A simplified approach to in-app purchases with Corona SDK
+
+## What is IAP Badger? (And what will it do for you?)
+
+Although Corona SDK offers an IAP API that is quite similar across the app stores, there are differences depending on whether you are connecting to Apple's App Store, Google Play or through Amazon.  This can result in spaghetti code that is difficult to maintain.
+
+The main benefit of using IAP Badger is you can forget all that.  You write one, simple piece of code that functions across all the app stores.
+
+In terms of program flow and event handling, IAP Badger makes all of the stores appear to follow Apple's purchase and restore model.  For instance, it will automatically handle the consumption of consumable products on Google Play.
 
 
-## Purpose:
+## Overview
 
-Although Corona SDK offers an IAP API that is quite similar across the app stores, there are differences depending on whether you are connecting to Apple's App Store, Google Play or through Amazon.  I wanted to produce a unified approach to IAP processing, that meant I could write one piece of code that would function whatever the device.  The result is IAP badger.
+The iap_badger plugin can be used in your [Corona](https://coronalabs.com/products/corona-sdk/) project.  It provides:
 
+* A simplified set of functions for processing in app purchases (IAP)
+* The ability to write a single piece of IAP code that works across Apple's App Store, Google Play and Amazon.
+* Makes Google and Amazon stores appear to follow the purchase/restore model adopted by Apple.
+* A built-in inventory system with basic security for load/saving purchases (if you want it)
+* Products can have different names across the range of stores (so an upgrade called 'COIN_UPGRADE' in iTunes  Connect could be called 'coins_purchased' in Google Play) without the need for additional code
+* A testing mode, so your IAP functions can be tested on the simulator or a real device without having to contact an actual app store.
 
-### General features:
-
-* a unified approach to calling store and IAP whether you're on the App Store, Google Play, or wherever
-* simplified calling and testing of IAP functions - just provide IAP Badger with a list of products and some simple callbacks for when items are purchased / restored or refunded
-* a testing mode, so your IAP functions can be tested on the simulator or a real device without having to contact an actual app store.
-* simplified product maintenance (adding/removing products from the inventory)
-* handling of loading / saving of items that have been purchased
-* products can have different names across the range of stores (so an upgrade called 'COIN_UPGRADE' in iTunes  Connect could be called 'coins_purchased' in Google Play) without the need for additional code
-* different product types available (consumable or non-consumable)
-
-
-### Inventory / security features:
-
-* customise the filename used to save the contents of the inventory
-* inventory file contents can be hashed to prevent unauthorised changes (specify a 'salt' in the init() function).
-* a customisable 'salt' can be applied to the contents so no two Corona apps produce the same hash for the same inventory contents.  (Empty inventories are saved without a hash, to make it more difficult to reverse engineer the salt.)
-* product names can be refactored (renamed) in the save file to disguise their true function
-* quantities / values can also be disguised / obfuscated
-* fake items can be added to the inventory, whose values change randomly with each save, to help disguise the function of other quantities being saved at the same time.
-* IAP badger can generate a Amazon test JSON file for you, to help with testing on Amazon hardware
+IAP Badger is wrapper class written in pure lua for Corona's Apple store libraries and the Google and Amazon IAP plug-ins.
 
 It's supplied under an MIT license, so fork it and do what you like with it.
 
@@ -36,4 +31,6 @@ It's supplied under an MIT license, so fork it and do what you like with it.
 The code included in this repository is a standard lua library, which can be included in your project and forked/amended as required.  The library is also available as a standard Corona SDK plug-in.
 
 To provide a single point of access for information about IAP Badger that is up to date, documentation and sample tutorials for IAP Badger will now be maintained [on our website](http://happymongoosegames.co.uk/iapbadger.php).
+
+To find our about latest changes, and to ask questions about IAP Badger, [use this forum on Corona's website](https://forums.coronalabs.com/topic/59137-iap-badger-a-unified-approach-to-in-app-purchases/).
 
