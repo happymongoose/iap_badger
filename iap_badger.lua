@@ -14,8 +14,16 @@ Currently supports: iOS App Store / Google Play / Amazon / simulator
 Changelog
 ---------
 
+Version 12
+* added switch to ignore unknown product codes on purchase/restore - handleInvalidProductIDs
+* downgraded invalid product IDs from an error that halts execution to a printed error to terminal
+* added switch in catalogue to allow restore of individual consumable products (set allowRestore to true) - note that this item will now be included when running a restore cycle in debug mode
+* removed some of instructional comments from the source code (out of date and better documentation available on http://happymongoose.co.uk anyway
+* improved some debug output detail on verboseDebugOutput
+* fixed incorrect error messages on consumption events on Google Play
+
 Version 11
-* fixed loadProducts not working correctly on simulator when not passed a callback function
+* fixed loadProducts not working correctly on simulator (when not passed a callback function)
 
 Version 10
 * fixed crash bug introduced by verboseDebugOutput when testing cancelled/failed restores on the simulator
@@ -80,9 +88,6 @@ Inventory / security features:
 * IAP badger can generate a Amazon test JSON file for you, to help with testing on Amazon hardware
 
 
-Thought for the day: with all the security measures imaginable, anyone who wants to jailbreak/root their device so they can then
-    disassemble/hack your app is going to do so.  No amount of data / code obfuscation will stop them.  Accept it and move on.
-    
     
 
 This code is released under an MIT license, so you're free to do what you want with it -
@@ -114,268 +119,14 @@ given back to the community :)
 
 --]]
 
---[[
 
-Catalogue   
-
-This is a list of items that can exist in the inventory, and the products that the user can buy.  For an example, the inventory
-could contain diamonds, that are consumable items.  The user can buy products such as a pack of 10 diamonds, 50 diamonds or 100 diamond.
-Products can have different names on different app stores.
-
-Inventory items:
-    --productType (required) legal types are: consumable, non-consumable, random-integer, random-decimal, random-hex.
-            non-consumable items exist in a boolean state (they have been purchased, or they haven't).  If the item in in the inventory,
-                it returns true to queries about it's value; if it's not in the inventory, it returns nil.
-            consumable items exists as quantities.  If the item ever reaches a quantity of '0' it is completely removed from the inventory -
-                this means queries about its quantity will return 'nil' rather than 0.
-            random-integer, random-decimal and random-hex will just throw out random values every time the 
-                table is saved.  Their use is solely to disguise the function of other variables in the inventory - add as many/few
-                of these you like, but ignore their quantities once added to the inventory.
-    --randomLow, randomHigh (for random items only): for random-integer, random-decimal and random-hex, these are the low/high bounds to
-                use when generating the random number at save time.
-
-Product catalogue options:
-    --productType (required) legal types are: consumable and non-consumable
-            non-consumable items exist in a boolean state (they have been purchased, or they haven't).  If the item in in the inventory,
-                it returns true to queries about it's value; if it's not in the inventory, it returns nil.
-            consumable items exists as quantities.  If the item ever reaches a quantity of '0' it is completely removed from the inventory -
-                this means queries about its quantity will return 'nil' rather than 0.
-    --onPurchase (required for all app stores): function to call when the item is purchased or restored (IAP badger treats them as the same).
-            However, as the basic Corona transaction event is passed, if you need to distinguish between the two, look at transaction.state. 
-            The callback function must take the form:
-            function purchaseListener(itemName, event)
-                itemName = name of item purchased as listed in the product catalogue
-                transaction = original transaction info as passed from Corona.  However, one item has been added: firstRestoreCallback.
-                        If this is the first item received following a restore call, transaction.firstRestoreCallback will be set to true.  Use this
-                        as an indicator that you should remove any spinners / waiting messages you may have up on screen.
-    --onRefund (required for some app stores): function to call when the item is purchased.  Must take the form:
-            function refundListener(itemName, event)
-                itemName = name of item refunded as listed in the product catalogue
-                transaction = original transaction info as passed from Corona
-    --productNames table (required): a list of names that identify the product in each of the app stores.  For instance, the IAP name of a coin_upgrade in
-            iTunes connect may be 'COIN_UPGRADE', but in Google Play as 'coin_purchase', or in Amazon as 'COIN001'.  Use the name
-            of the store as it appears in the store.target function (eg. either "amazon", "apple", "gameStick", "google",
-            "nook" or "samsung" at the time of writing.)
-    --simulatorPrice (optional): the price that will be returned for this product in the loadProducts() function when using the simulator.
-    --simulatorDescription (optional): the description that will be returned for this product in the loadProducts() function when using the simulator.
-    --reportMissingAsZero (optional): if the item is missing from the inventory, it's value will be returned at 0 (rather than nil)
-Here are a few examples:
-
-iap = require("iap_badger")
-local catalogue = {
-
-    --Inventory items that appear in inventory
-    inventoryItems = {
-        unlock = {
-            productType="non-consumable"
-        },
-        coins = {
-            productType="consumable"
-        },
-        pixelGammaAdjustment = {
-            productType="random-integer",
-            randomLow=1,
-            randomHigh=10
-        },
-        timeGammaAdjustment = {
-            productType="random-decimal",
-            randomLow=1,
-            randomHigh=10
-        },
-        fakeHash = {
-            productType="random-hex",
-            randomLow=10000,
-            randomHigh=20000
-        }
-    },
-    
-    --Products that the user can buy through IAP.  Requires productNames, onPurchase, onRefund and productType to be set
-    products = {
-        buyUpgrade = {
-            productNames = {
-                apple="add_sub_upgrade",
-                google="add_sub_upgrade"
-            },
-            onPurchase=function() 
-                iap.setInventoryValue("unlock", true)
-            end,
-            onRefund=function() 
-                iap.removeFromInventory("unlock", true)
-            end,
-            productType="non-consumable"
-        },
-        buy50coins = {
-            productNames = {
-                apple="mul_div_upgrade",
-                google="mul_div_upgrade"
-            },
-            onPurchase=function() 
-                iap.addToInventory("coins", 50)
-            end,
-            onRefund=function() 
-                iap.removeFromInventory("coins", 50)
-            end,
-            productType="consumable"
-        },
-    }
-    
-}
-
-    Handling restores
-    -----------------
-    
-    Following a restore call, Corona will receive back a number of restore callbacks indicating products the user has 
-    previously purchased.  The only problem is that the IAP systems do not indicate that 'this product is the last in the list'.
-    
-    All restore events initially call the onPurchase callback.  All code in the onPurchase callback should be 'quiet' (ie.
-    not pass any messages to the user about the purchase being succesful).  Save that sort of message for the post restore listener that
-    you identified when you called iap_bader.restore.
-    
-    The first call to this function should remove any "waiting" messages / spinners from the screen if the
-    transaction.firstRestoreCallback flag is set to true.  It can ignore any further calls when firstRestoreCallback is set to nil.
-    The implication of this is that further restore messages could be in the pipeline, and they will continue to work silently
-    over the next few seconds as the information finds its way across the internet.  This is imperfect, but the best that can currently
-    be achieved.
-
-    To avoid race conditions between restores and purchases, do not allow your user (or your code) to make a purchase
-    before either the successful postRestoreListener or timeoutFunction is called following your restore request.     
---]]
-
+--Product catalogue
 local catalogue=nil
 
---[[
-Destination table for info
-
-This is a table that indicates which of the above products has been purchased.  For example:
-    inventory = {
-        upgrade1 = { value = true },
-        upgrade2 = { value = 1 },
-    }
-If a product does not exist in the inventory, it has not been purchased
---]]
+--User inventory
 local inventory=nil
 public.inventory=inventory
 
---[[
-This bit is entirely optional.
-
-The refactoring table contains options for disguising the nature of the product.  If a refactorTable is provided,
-the products name and quantity will be disguised in the save table; the code will take care of naming and renaming each item, 
-so the calling program only has to worry about the 'true' name of the item.  (Eg. we have an product called 'unlock_program', but don't want to 
-leave such an obvious description lying around the game's file system.  In the file system, you could save the product under
-the name 'crash_record', and the inventory code will take care of this - the calling code only has to worry about
-querying for 'unlock_program'.  Quantities can also be refactored to, so the value 1 may be stored as '27'.)
-
-To help hide the function of specific variables, random variables can be included that will change their
-value every time the inventory is saved.  This may help hide the function of certain variables if someone attempts
-to reverse engineer the file (by looking at what happens before and after a purchase is made).
-
-None of this is perfect - if anyone wants to disassemble your code and crack your game, they will; however, refactoring
-rather than encrypting helps to avoid some of the difficulties associated with using encryption to save/load information
-(such as having to apply for export certificates in the USA and France before your app can be legally purchased).
-
-The refactor table is a table containing an entry for every item of the inventory you want to refactor.  So it must be
-given in the form
-
-table = {
-    {
-        item1,
-        item2,
-        item3...
-    }
-}
-
-Each item describes how to refactor/rename an item in the inventory.  Each item takes the form:
-
-item = {
-    name="real name",
-    refactoredName="hidden name"
-    
-    --The below is optional
-    property={
-        property1,
-        property2,
-        property3...
-    }
-}
-
-The properties table is a list of properties that describe each object in the inventory.  At the moment, the only property 
-implemented is 'value', which describes how many of the item are stored in the inventory 
-(this may be expanded later to store start/stop dates for subscriptions etc.)  Properties can be refactored as well - and
-the properties table .  The values that are stored can also be disguised. 
-
-property = {
-    name="value",
-    refactoredName="hidden property name",
-    refactorFunction=function() end
-    defactorFunction=funciton() end
-}
-
-random-integer, random-decimal and random-hex entries can all be refactored as well.  This may be preferable: by default,
-these items have their property value listed as 'value' also, when they could be changed into 'n-ary', 'hash-value' or
-something equally indecipherable.
-
-I appreciate this all sounds very complicated.  Here's an example for those that learn by doing:
-
-
-refactorTable={
-    {
-        --Item 1 - an upgrade
-        {
-            name="upgrade1",
-            refactoredName="a",
-            properties={
-                {
-                    name="value",
-                    refactoredName="height",
-                    --Disguise the value
-                    refactorFunction=function(value) return (value*6)+4 end,
-                    --The defactor function 'un-disguises' the value (it is always the inverse of the refactor function)
-                    defactorFunction=function(value) return (value-4)/6 end
-                }
-            }
-        },
-
-        --Item 2 - an unlock
-        {
-            name="unlock",
-            refactoredName="b",
-            properties={
-                {
-                    name="value",
-                    refactoredName="width",
-                    refactorFunction=function(value) if (value==true) then return math.random(1,100) else return math.random(101,200) end,
-                    defactorFunction=function(value) if (value>=1) and (value<=100) then return true else return false end
-                }
-            }
-        },
-
-        --A random var
-        {
-            name="fakeHash",
-            refactoredName="hash",
-            properties = {
-                {
-                    name="value",
-                    refactoredName="cyc10"
-                    --Don't need refactor functions for the value as they are automatically randomised anyway
-                }
-        }
-    }
-    }    
-    
-    The original save file would look something like this:
-    upgrade1 = { value=10 }
-    unlock = { value=true }
-    fakeHash = { value=<random> }
-    
-    The refactored save file would look like:
-    a = { height = 64 }
-    b = { width = 57 }
-    hash = { cyc10 = 0x38273 }
-    
-    This helps disguise the true nature of the variables store in the file system.
---]]
 local refactorTable=nil
 public.refactorTable=refactorTable
 
@@ -403,6 +154,9 @@ local fakePurchase
 local loadProducts
 local restore
 local purchase
+
+--Switches (and default values)
+local handleInvalidProductIDs=false
 
 --Restore purchases timer
 local restorePurchasesTimer=nil
@@ -1228,9 +982,9 @@ local function storeTransactionCallback(event)
     end
     
     --Not interested in consumption events
-    if (event.name=="consumed") then 
+    if (event.name=="storeTransaction") and (event.transaction.state=="consumed") then 
         if (verboseDebugOutput) then 
-            print "Consumption event - ignoring" 
+            print "Consumption notification event" 
             print "IAP Badger: leaving storeTransactionCallback"
         end
         return 
@@ -1358,7 +1112,13 @@ local function storeTransactionCallback(event)
     ------------------------------
     --If the program gets this far into the function, the product was purchased, restored or refunded.
     
-    if (verboseDebugOutput) then print "Transaction PURCHASE or RESTORE" end
+    if (verboseDebugOutput) then 
+        if (transaction.state=="restored") then 
+            print "Processing RESTORE event"
+        else
+            print "Processing PURCHASE event" 
+        end
+    end
     
     --If this is a restore callback, and this is the first item to be restored...
     if (firstRestoredItem==true) and (transaction.state=="restored") then
@@ -1371,8 +1131,17 @@ local function storeTransactionCallback(event)
     
     --If the product has not been identified, something has gone wrong
     if (product==nil) then
-        error("iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
+        --If user has requested invalid IDs to be ignored during a restore event...
+        if (handleInvalidProductIDs) and (transaction.state=="restored") then
+            --Let them know this has happened
+            print ("ERROR: iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
+                targetStore .. " store.")
+            print "Ignoring restore for this product."
+            return true
+        end
+        print ("ERROR: iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
             targetStore .. " store.")
+        print "Unable to process transaction event."
         return false
     end
 
@@ -1392,11 +1161,24 @@ local function storeTransactionCallback(event)
             postStoreTransactionCallbackListener(productName, transaction) 
             if (verboseDebugOutput) then print "Returned from user defined purchase listener (noisy)" end
         end
-        if (transaction.state=="restored") and (postRestoreCallbackListener~=nil) and (product.productType~="consumable") then 
-            if (verboseDebugOutput) then print "Calling user defined restore listener" end
-            postRestoreCallbackListener(productName, transaction) 
-            if (verboseDebugOutput) then print "Returned from user defined restore listener" end
-        end
+        --Restore events - only process for non-consumables unless instructed to by the user
+        if (transaction.state=="restored") and (postRestoreCallbackListener~=nil) then
+            --Default to processing the event
+            local processEvent=true
+            --Don't process consumables
+            if (product.productType=="consumable") then processEvent=false end
+            --Unless the user has overridden this in the product catalogue
+            if (product.allowRestore) then processEvent=true end
+            --Should event be processed?
+            if (processEvent) then
+                if (verboseDebugOutput) then print "Calling user defined restore listener" end
+                postRestoreCallbackListener(productName, transaction) 
+                if (verboseDebugOutput) then print "Returned from user defined restore listener" end
+            else
+                --Tell user the event is being ignored
+                if (verboseDebugOutput) then print "Ignoring restore request: product is a consumable" end
+            end
+        end        
         --If running on Amazon, and this is a restore, save the purchase info (may need to cancel a revoke later)
         if (targetStore=="amazon") and (transaction.state=="restored") then
             previouslyRestoredTransactions[#previouslyRestoredTransactions+1]=transaction
@@ -1680,6 +1462,7 @@ public.purchase=purchase
 --      * doNotLoadInventory (optional) - set to true to start with an empty inventory (useful for debugging)
 --      * usingOldGoogle (optional) - set to true if you're using an old build of Corona (earlier than 2017.3105) and don't need to worry about asynchronous changes to store.init
 --      * verboseDebugOutput (optional) - sends lots of debugging info to the console
+--      * handleInvalidProductIDs (optional) - set to true to ignore invalid product IDs during a restore event -  but tell the store they have been successfully processed.  This can be useful is a product ID for an app has been changed/deleted but some users still have products registered against them.  Default is false
 
 local function init(options)
         
@@ -1728,6 +1511,14 @@ local function init(options)
     --Filename
     if (options.filename) then
         filename=options.filename
+    end
+    
+    --Handle invalid product IDs?
+    if (options.handleInvalidProductIDs) then
+        handleInvalidProductIDs = options.handleInvalidProductIDs
+        if (verboseDebugOutput) and (options.handleInvalidProductIDs) then
+            print "handleInvalidProductIDs flag set: will handle invalid product IDs during restore events."
+        end
     end
     
     --Refactor table (optional)
@@ -1970,7 +1761,10 @@ fakeRestoreListener=function(event)
             --Get the product
             local productID = getAppStoreID(productList[i])
             --If this product isn't consumable...
-            if (catalogue.products[productList[i]].productType~="consumable") then 
+            local processItem=true;
+            if (catalogue.products[productList[i]].productType~="consumable") then processItem=false end
+            if (catalogue.products[productList[i]].allowRestore) then procesItem=true end
+            if (processItem) then
                 --Create a fake event for this product
                 local fakeEvent={
                     transaction={
