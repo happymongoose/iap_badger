@@ -2102,7 +2102,7 @@ public.loadProducts = loadProducts
 
 --Returns version number for library
 local function getVersion() 
-    return 11;
+    return 12;
 end
 public.getVersion=getVersion
 
