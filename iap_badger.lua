@@ -1035,6 +1035,25 @@ local function storeTransactionCallback(event)
         print (transaction.productIdentifier .. "==>" .. productName)
     end
     
+    --If the product has not been identified, something has gone wrong
+    if (product==nil) then
+        --If user has requested invalid IDs to be ignored during a restore event...
+        if (handleInvalidProductIDs) and (transaction.state=="restored") then
+            if (verboseDebugOutput) then
+                --Let them know this has happened
+                print ("ERROR: iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
+                    targetStore .. " store.")
+                print "Ignoring restore for this product."
+            end
+            if (debugMode~=true) then store.finishTransaction(event.transaction) end
+            return true
+        end
+        print ("ERROR: iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
+            targetStore .. " store.")
+        print "Unable to process transaction event."
+        return false
+    end
+
     ---------------------------------
     -- Handle refunds (Android-based machines only)
     -- Refunds always follow a call to store.restore(); refunds shese should be silent, and will not initiate any callback.
@@ -1129,22 +1148,6 @@ local function storeTransactionCallback(event)
         firstRestoredItem=nil
     end
     
-    --If the product has not been identified, something has gone wrong
-    if (product==nil) then
-        --If user has requested invalid IDs to be ignored during a restore event...
-        if (handleInvalidProductIDs) and (transaction.state=="restored") then
-            --Let them know this has happened
-            print ("ERROR: iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
-                targetStore .. " store.")
-            print "Ignoring restore for this product."
-            return true
-        end
-        print ("ERROR: iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
-            targetStore .. " store.")
-        print "Unable to process transaction event."
-        return false
-    end
-
     --If successfully purchasing or restoring a transaction...
     if (transaction.state=="purchased") or (transaction.state=="restored") then
         --Call the user specified purchase function
