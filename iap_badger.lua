@@ -1778,8 +1778,8 @@ fakeRestoreListener=function(event)
             local productID = getAppStoreID(productList[i])
             --If this product isn't consumable...
             local processItem=true;
-            if (catalogue.products[productList[i]].productType~="consumable") then processItem=false end
-            if (catalogue.products[productList[i]].allowRestore) then procesItem=true end
+            if (catalogue.products[productList[i]].productType~="non-consumable") then processItem=false end
+            if (catalogue.products[productList[i]].allowRestore) then processItem=true end
             if (processItem) then
                 --Create a fake event for this product
                 local fakeEvent={
