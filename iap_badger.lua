@@ -14,6 +14,9 @@ Currently supports: iOS App Store / Google Play / Amazon / simulator
 Changelog
 ---------
 
+Version 13
+* Fixed bug introduced in version 12 that would make cancelled or failed restores in debug mode fail
+
 Version 12
 * added switch to ignore unknown product codes on purchase/restore - handleInvalidProductIDs
 * downgraded invalid product IDs from an error that halts execution to a printed error to terminal
@@ -1037,21 +1040,31 @@ local function storeTransactionCallback(event)
     
     --If the product has not been identified, something has gone wrong
     if (product==nil) then
-        --If user has requested invalid IDs to be ignored during a restore event...
-        if (handleInvalidProductIDs) and (transaction.state=="restored") then
-            if (verboseDebugOutput) then
-                --Let them know this has happened
-                print ("ERROR: iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
-                    targetStore .. " store.")
-                print "Ignoring restore for this product."
-            end
-            if (debugMode~=true) then store.finishTransaction(event.transaction) end
-            return true
+        --Does the library need to raise product ID errors?  Assume yes
+        local raiseProductIDError=true
+        --But... in test mode, IAP Badger does use a dummy product ID to simulate cancelled and failed purchases, so ignore those
+        if  ( (debugMode) and (transaction.productIdentifier=="debugProductIdentifier") 
+            and ((transaction.state=="failed") or (transaction.state=="cancelled")) ) then
+            raiseProductIDError=false;
         end
-        print ("ERROR: iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
-            targetStore .. " store.")
-        print "Unable to process transaction event."
-        return false
+        --Raise product ID error
+        if (raiseProductIDError) then
+            --If user has requested invalid IDs to be ignored during a restore event...
+            if (handleInvalidProductIDs) and (transaction.state=="restored") then
+                if (verboseDebugOutput) then
+                    --Let them know this has happened
+                    print ("ERROR: iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
+                        targetStore .. " store.")
+                    print "Ignoring restore for this product."
+                end
+                if (debugMode~=true) then store.finishTransaction(event.transaction) end
+                return true
+            end
+            print ("ERROR: iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
+                targetStore .. " store.")
+            print "Unable to process transaction event."
+            return false
+        end
     end
 
     ---------------------------------
@@ -2105,7 +2118,7 @@ public.loadProducts = loadProducts
 
 --Returns version number for library
 local function getVersion() 
-    return 12;
+    return 13;
 end
 public.getVersion=getVersion
 
