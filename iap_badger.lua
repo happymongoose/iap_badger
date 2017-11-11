@@ -14,6 +14,10 @@ Currently supports: iOS App Store / Google Play / Amazon / simulator
 Changelog
 ---------
 
+Version 14
+* Fixed bug introduced in version 12 on Android devices that mishandled failed/cancelled events
+* Better handling (and improved consistency between devices) of transaction receipts
+
 Version 13
 * Fixed bug introduced in version 12 that would make cancelled or failed restores in debug mode fail
 
@@ -997,19 +1001,18 @@ local function storeTransactionCallback(event)
         
     --Get a copy of the transaction
     local transaction={}
-        transaction.state=event.transaction.state
-        transaction.productIdentifier=event.transaction.productIdentifier
-        transaction.receipt=event.transaction.receipt
-        transaction.signature=event.transaction.signature
-        transaction.identifier=event.transaction.identifier
-        transaction.date=event.transaction.date
-        transaction.originalReceipt=event.transaction.originalReceipt
-        transaction.originalIdentifier=event.transaction.originalIdentifier
-        transaction.originalDate=event.transaction.originalDate
-        transaction.errorType=event.transaction.errorType
-        transaction.errorString=event.transaction.errorString
-        transaction.transactionIdentifier = event.transaction.identifier
-       
+        --Put in empty values for common vars in the transaction table - this allows for occasional differences between differt devices and gives
+        --a more consistent transaction table
+        local commonVars = { "productIdentifier", "receipt", "signature", "identifier", "date", "originalReceipt", "originalIdentifier", "originalDate",
+                "errorType", "errorString", "transactionIdentifier" }
+        for key, value in pairs(commonVars) do
+            transaction[value] = ""
+        end
+        --From the real transaction, copy in any passed value over those null strings
+        for key, value in pairs(event.transaction) do
+            transaction[key] = value
+        end
+               
     --If on the Google or Amazon store, and the last action from the user was to make a restore, and this
     --appears to be a purchase, then convert the event into a restore
     if ( ((targetStore=="amazon") or targetStore=="google")) and (actionType=="restore") and (transaction.state=="purchased") then
@@ -1038,35 +1041,39 @@ local function storeTransactionCallback(event)
         print (transaction.productIdentifier .. "==>" .. productName)
     end
     
-    --If the product has not been identified, something has gone wrong
-    if (product==nil) then
-        --Does the library need to raise product ID errors?  Assume yes
-        local raiseProductIDError=true
-        --But... in test mode, IAP Badger does use a dummy product ID to simulate cancelled and failed purchases, so ignore those
-        if  ( (debugMode) and (transaction.productIdentifier=="debugProductIdentifier") 
-            and ((transaction.state=="failed") or (transaction.state=="cancelled")) ) then
-            raiseProductIDError=false;
-        end
-        --Raise product ID error
-        if (raiseProductIDError) then
-            --If user has requested invalid IDs to be ignored during a restore event...
-            if (handleInvalidProductIDs) and (transaction.state=="restored") then
-                if (verboseDebugOutput) then
-                    --Let them know this has happened
-                    print ("ERROR: iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
-                        targetStore .. " store.")
-                    print "Ignoring restore for this product."
-                end
-                if (debugMode~=true) then store.finishTransaction(event.transaction) end
-                return true
+    --If this is NOT a 'failed' or 'cancelled' event, handle invalid product IDs
+    if (transaction.state~="failed") and (transaction.state~="cancelled") then
+        --At this point, we could be in a purchase, refund or restored transaction - so a product ID is essential
+        --If the product has not been identified, something has gone wrong
+        if (product==nil) then
+            --Does the library need to raise product ID errors?  Assume yes
+            local raiseProductIDError=true
+            --But... in test mode, IAP Badger does use a dummy product ID to simulate cancelled and failed purchases, so ignore those
+            if  ( (debugMode) and (transaction.productIdentifier=="debugProductIdentifier") 
+                and ((transaction.state=="failed") or (transaction.state=="cancelled")) ) then
+                raiseProductIDError=false;
             end
-            print ("ERROR: iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
-                targetStore .. " store.")
-            print "Unable to process transaction event."
-            return false
+            --Raise product ID error
+            if (raiseProductIDError) then
+                --If user has requested invalid IDs to be ignored during a restore event...
+                if (handleInvalidProductIDs) and (transaction.state=="restored") then
+                    if (verboseDebugOutput) then
+                        --Let them know this has happened
+                        print ("ERROR: iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
+                            targetStore .. " store.")
+                        print "Ignoring restore for this product."
+                    end
+                    if (debugMode~=true) then store.finishTransaction(event.transaction) end
+                    return true
+                end
+                print ("ERROR: iap badger.storeTransactionCallback: unable to find product '" .. transaction.productIdentifier .. "' in a product for the " .. 
+                    targetStore .. " store.")
+                print "Unable to process transaction event."
+                return false
+            end
         end
     end
-
+    
     ---------------------------------
     -- Handle refunds (Android-based machines only)
     -- Refunds always follow a call to store.restore(); refunds shese should be silent, and will not initiate any callback.
@@ -1107,7 +1114,7 @@ local function storeTransactionCallback(event)
     
     ------------------------------
     -- Deal with problems first
-    
+        
     --Failed transactions
     if (transaction.state=="failed") then
         if (verboseDebugOutput) then print "Transaction FAILED" end
@@ -2118,7 +2125,7 @@ public.loadProducts = loadProducts
 
 --Returns version number for library
 local function getVersion() 
-    return 13;
+    return 14;
 end
 public.getVersion=getVersion
 
