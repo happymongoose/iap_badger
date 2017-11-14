@@ -14,6 +14,10 @@ Currently supports: iOS App Store / Google Play / Amazon / simulator
 Changelog
 ---------
 
+Version 15
+* bug fixes
+* better handling of store on iOS if user not logged in
+
 Version 14
 * Fixed bug introduced in version 12 on Android devices that mishandled failed/cancelled events
 * Better handling (and improved consistency between devices) of transaction receipts
@@ -1001,18 +1005,28 @@ local function storeTransactionCallback(event)
         
     --Get a copy of the transaction
     local transaction={}
-        --Put in empty values for common vars in the transaction table - this allows for occasional differences between differt devices and gives
-        --a more consistent transaction table
-        local commonVars = { "productIdentifier", "receipt", "signature", "identifier", "date", "originalReceipt", "originalIdentifier", "originalDate",
-                "errorType", "errorString", "transactionIdentifier" }
-        for key, value in pairs(commonVars) do
-            transaction[value] = ""
+    --Make a local copy of the transaction
+    --Put in empty values for missing variables in the transaction table - this allows for occasional differences between differt devices and gives
+    --a more consistent transaction table
+    local transaction_vars = { 
+        "productIdentifier", "receipt", "signature", "identifier", "date", "originalReceipt", "originalIdentifier", "originalDate",
+            "errorType", "errorString", "transactionIdentifier", "state", "productIdentifier", "isError" }
+    --From the real transaction, copy in any passed value over those null strings
+    for key, value in pairs(transaction_vars) do
+        if event.transaction[value] then 
+            transaction[value]=event.transaction[value] 
+        else
+            transaction[value]=""
         end
-        --From the real transaction, copy in any passed value over those null strings
-        for key, value in pairs(event.transaction) do
-            transaction[key] = value
-        end
-               
+    end
+    
+    if (transaction.state=="") then 
+        transaction.state="failed"
+        transaction.errorString = "Error accessing " .. targetStore
+        transaction.isError = true
+        transaction.errorType = 0
+    end
+    
     --If on the Google or Amazon store, and the last action from the user was to make a restore, and this
     --appears to be a purchase, then convert the event into a restore
     if ( ((targetStore=="amazon") or targetStore=="google")) and (actionType=="restore") and (transaction.state=="purchased") then
@@ -2125,7 +2139,7 @@ public.loadProducts = loadProducts
 
 --Returns version number for library
 local function getVersion() 
-    return 14;
+    return 15;
 end
 public.getVersion=getVersion
 
