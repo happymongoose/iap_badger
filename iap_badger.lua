@@ -5,6 +5,8 @@ local public = Library:new{ name='iap_badger', publisherId='uk.co.happymongoose'
 local store={}
 public.store=store
 
+local version=16
+
 --[[
 
 IAP badger - the trolley of the future.
@@ -13,6 +15,9 @@ Currently supports: iOS App Store / Google Play / Amazon / simulator
 
 Changelog
 ---------
+
+Version 16
+* fixed checkProductExists bug (thanks to bogomazon)
 
 Version 15
 * bug fixes
@@ -2140,7 +2145,7 @@ public.loadProducts = loadProducts
 
 --Returns version number for library
 local function getVersion() 
-    return 15;
+    return version;
 end
 public.getVersion=getVersion
 
