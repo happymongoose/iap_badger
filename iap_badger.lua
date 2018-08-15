@@ -16,6 +16,9 @@ Currently supports: iOS App Store / Google Play / Amazon / simulator
 Changelog
 ---------
 
+Version 17
+* corrected declaration of emptyInventoryOfNonConsumableItems
+
 Version 16
 * fixed checkProductExists bug (thanks to bogomazon)
 
@@ -716,7 +719,7 @@ local function emptyInventoryOfNonConsumableItems()
         end
     end
 end
-public.emptyInventory=emptyInventory
+public.emptyInventoryOfNonConsumableItems=emptyInventoryOfNonConsumableItems
 
 
 --Adds a product to the inventory
