@@ -5,7 +5,7 @@ local public = Library:new{ name='iap_badger', publisherId='uk.co.happymongoose'
 local store={}
 public.store=store
 
-local version=16
+local version=17
 
 --[[
 
