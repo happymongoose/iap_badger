@@ -5,7 +5,7 @@ local public = Library:new{ name='iap_badger', publisherId='uk.co.happymongoose'
 local store={}
 public.store=store
 
-local version=17
+local version=18
 
 --[[
 
@@ -15,6 +15,10 @@ Currently supports: iOS App Store / Google Play / Amazon / simulator
 
 Changelog
 ---------
+
+Version 18
+* purchases on Google Store that fail because the user already owns the specified item are now converted into standard purchase events (to replicate behaviour on iOS).  This can be turned on/off with the googleConvertOwnedPurchaseEvents flag during initialisation.
+* On Android, warnings given if no build store has been selected in the Corona build dialog
 
 Version 17
 * corrected declaration of emptyInventoryOfNonConsumableItems
@@ -213,7 +217,10 @@ local fakeRestoreTimeoutTime=nil
 local storeInitialized = nil
     --Once the store is initialised, run a restore
     local initQueue = nil
-    
+local googleLastPurchaseProductID = ""
+--On Google, if a purchase fails because the user already owns the item, convert the 'fail' state to success
+local googleConvertOwnedPurchaseEvents = true
+
 --Flag to indicate if this is the first item following a restore call
 local firstRestoredItem=nil
 --Action type - either "purchase" or "restore".  Used for faking Google purchase or restore
@@ -1048,7 +1055,37 @@ local function storeTransactionCallback(event)
         if (verboseDebugOutput) then print "Converting Amazon revoked event into refunded event" end
         transaction.state="refunded" 
     end
-    
+
+        --If on Google Play, and this purchase failed because the user already owns the item, convert the failed event into a restore event
+    if (targetStore=="google") and (transaction.state=="failed") and (transaction.errorType==7) then
+        
+        --If converting these events to successful events (like on iOS)...
+        if (googleConvertOwnedPurchaseEvents) then
+          --Set the new transaction state
+          transaction.state="purchased"
+          transaction.isError=false
+          transaction.errorType=0
+          transaction.errorString=""
+
+          --Set the product idenitfier
+          transaction.productIdentifier = googleLastPurchaseProductID
+          --Logging
+          if (verboseDebugOutput) then 
+              print "User already owns item. Converting FAILED event into a PURCHASED event" 
+              print "New event data:"
+              debugPrint(transaction)
+          end
+          
+      else
+          if (verboseDebugOutput) then
+            print "User already owns item.  Purchase event failed."
+          end        
+      end
+      
+    end
+    --Reset last google purchase product name
+    googleLastPurchaseProductID=""
+
     --Search the product catalogue for the relevant target store - if running in the simulator,
     --default to iOS.
     local searchStore=targetStore
@@ -1452,6 +1489,7 @@ purchase=function(productList, listener)
         else
             --Real store will want the name of the product as a string (and nothing else)
             if (verboseDebugOutput) then print "Requesting purchase from Google Play..." end
+            googleLastPurchaseProductID = renamedProduct
             store.purchase(renamedProduct)
         end
         --Quit here
@@ -1509,6 +1547,7 @@ public.purchase=purchase
 --      * usingOldGoogle (optional) - set to true if you're using an old build of Corona (earlier than 2017.3105) and don't need to worry about asynchronous changes to store.init
 --      * verboseDebugOutput (optional) - sends lots of debugging info to the console
 --      * handleInvalidProductIDs (optional) - set to true to ignore invalid product IDs during a restore event -  but tell the store they have been successfully processed.  This can be useful is a product ID for an app has been changed/deleted but some users still have products registered against them.  Default is false
+--      * googleConvertOwnedPurchaseEvents (optional, affects Android only) - set to true to convert failing purchase events to successful ones, where the attempt failed because the user already owns the item, mimicking the flow on iOS.  Default is true.
 
 local function init(options)
         
@@ -1525,10 +1564,22 @@ local function init(options)
         verboseDebugOutput=true
         print "--------------------------------------------------------------------"
         print ("IAP Badger: init")
+        print ("Running version: " .. version)
         print ("Called with:")
         debugPrint(options)
         print ""
         print "VerboseDebugOutput set to true"
+    end
+    
+    --Converting Google failed purchase events to successful events (when purchase events fail because the user already owns the item, like on iOS)?
+    --If the flag is set in the options...
+    if (options.googleConvertOwnedPurchaseEvents~=nil) then
+        --Set to true or false
+        if (options.googleConvertOwnedPurchaseEvents) then 
+          googleConvertOwnedPurchaseEvents = true
+        else
+          googleConvertOwnedPurchaseEvents = false
+        end
     end
     
     --Check usingOldGoogle flag - if this hasn't been set, and running on an older build than 2017.3106, then force IAP Badger to use old library
@@ -1592,13 +1643,21 @@ local function init(options)
         storeAvailable = false
         --Get the current device's target store
         targetStore = system.getInfo("targetAppStore")
+        if (verboseDebugOutput) then print ("Device target store identified as '" .. targetStore .. "'") end
+        
+        --Give warnings about compiling with 'none' in the build dialog in Corona on Android (all IAPs will fail)
+        if (targetStore=="none") and (system.getInfo("platform")=="android") then
+          print "***ERROR: no Android store is available. This means IAP will not work correctly. To fix, rebuild your app and specify a target app store. (Open your app in the Corona simulator and, in the Android Build Dialog, select a store in the 'Target App Store' dropdown box.)"
+        end
         
         --If running on the simulator, set the target store manually
         if (onSimulator==true) then 
             targetStore="simulator" 
             storeAvailable=true
             storeInitialized=true
-            if (verboseDebugOutput) then print "Running on simulator" end
+            if (verboseDebugOutput) then 
+              print "Running on simulator" 
+            end
         end        
         
          --Initialise if the store is available
