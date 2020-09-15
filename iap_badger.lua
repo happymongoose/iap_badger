@@ -1026,7 +1026,7 @@ local function storeTransactionCallback(event)
     --a more consistent transaction table
     local transaction_vars = { 
         "productIdentifier", "receipt", "signature", "identifier", "date", "originalReceipt", "originalIdentifier", "originalDate",
-            "errorType", "errorString","userId", "transactionIdentifier", "state", "productIdentifier", "isError" }
+            "errorType", "errorString", "userId", "transactionIdentifier", "state", "productIdentifier", "isError" }
     --From the real transaction, copy in any passed value over those null strings
     for key, value in pairs(transaction_vars) do
         if event.transaction[value] then 
