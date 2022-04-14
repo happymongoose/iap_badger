@@ -1,5 +1,7 @@
 # iap_badger
-A simplified approach to in-app purchases with Corona SDK
+A simplified approach to in-app purchases with Corona SDKs.
+
+Note: This project is no longer being actively maintained. Please feel free to create a new fork and use it as you wish :)
 
 ## What is IAP Badger? (And what will it do for you?)
 
@@ -30,7 +32,6 @@ It's supplied under an MIT license, so fork it and do what you like with it.
 
 The code included in this repository is a standard lua library, which can be included in your project and forked/amended as required.  The library is also available as a standard Corona SDK plug-in.
 
-To provide a single point of access for information about IAP Badger that is up to date, documentation and sample tutorials for IAP Badger will now be maintained [on our website](http://happymongoosegames.co.uk/iapbadger.php).
+The documentation for IAP Badger can be found in the iapdocs folder in this project.
 
 To find our about latest changes, and to ask questions about IAP Badger, [use this forum on Corona's website](https://forums.coronalabs.com/topic/59137-iap-badger-a-unified-approach-to-in-app-purchases/).
-
