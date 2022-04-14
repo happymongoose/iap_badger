@@ -28,7 +28,7 @@ IAP Badger is wrapper class written in pure lua for Corona's Apple store librari
 It's supplied under an MIT license, so fork it and do what you like with it.
 
 
-##Documentation
+## Documentation
 
 The code included in this repository is a standard lua library, which can be included in your project and forked/amended as required.  The library is also available as a standard Corona SDK plug-in.
 
